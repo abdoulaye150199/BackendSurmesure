@@ -16,6 +16,10 @@ async function bootstrap() {
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean);
+  const allowedOrigins = new Set([
+    ...configuredOrigins,
+    'https://surmesure-front.vercel.app',
+  ]);
   const isDevelopment = config.get<string>('NODE_ENV') === 'development';
   app.enableCors({
     origin(
@@ -26,7 +30,7 @@ async function bootstrap() {
         isDevelopment &&
         origin != null &&
         /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
-      if (origin == null || configuredOrigins.includes(origin) || localDevelopmentOrigin) {
+      if (origin == null || allowedOrigins.has(origin) || localDevelopmentOrigin) {
         callback(null, true);
         return;
       }

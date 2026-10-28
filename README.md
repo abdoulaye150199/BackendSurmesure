@@ -20,7 +20,7 @@ PostgreSQL est exposé sur le port hôte `5434` afin de ne pas entrer en conflit
 
 Flutter peut être lancé avec `--dart-define=API_BASE=http://10.0.2.2:3000/v1` sur émulateur Android (`localhost` sur iOS/web).
 
-En développement, CORS accepte les origines `localhost` et `127.0.0.1` sur tout port afin de prendre en charge le port aléatoire de Flutter Web. En production, seules les origines exactes déclarées dans `CORS_ORIGINS` sont autorisées.
+En développement, CORS accepte les origines `localhost` et `127.0.0.1` sur tout port afin de prendre en charge le port aléatoire de Flutter Web. En production, seules les origines exactes déclarées dans `CORS_ORIGINS` sont autorisées. Pour le déploiement Render, ajoutez `https://surmesure-front.vercel.app` à `CORS_ORIGINS` (et toute autre origine frontend utilisée) ; cette origine Vercel est aussi autorisée explicitement par l’application.
 
 ## Architecture
 
