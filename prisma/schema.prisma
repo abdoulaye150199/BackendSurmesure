@@ -10,6 +10,7 @@ datasource db {
 enum UserRole {
   CLIENT
   STYLIST
+  EMPLOYEE
   ADMIN
 }
 
@@ -42,6 +43,7 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   stylist StylistProfile?
+  personnel Personnel?
   clientOrders Order[] @relation("ClientOrders")
   clientMeasurements Measurement[] @relation("ClientMeasurements")
   appointments Appointment[] @relation("ClientAppointments")
@@ -74,7 +76,9 @@ model Personnel {
   specialization String
   hireDate DateTime @default(now())
   active Boolean @default(true)
+  userId String? @unique @db.Uuid
   stylist StylistProfile @relation(fields: [stylistId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
   @@unique([stylistId, email])
   @@index([stylistId, active])
 }
@@ -82,7 +86,7 @@ model Personnel {
 model Measurement {
   id String @id @default(uuid()) @db.Uuid
   stylistId String @db.Uuid
-  clientId String @db.Uuid
+  clientId String? @db.Uuid
   clientName String
   clientPhone String
   values Json
@@ -90,7 +94,7 @@ model Measurement {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   stylist StylistProfile @relation(fields: [stylistId], references: [id], onDelete: Cascade)
-  client User @relation("ClientMeasurements", fields: [clientId], references: [id])
+  client User? @relation("ClientMeasurements", fields: [clientId], references: [id])
   @@index([stylistId, createdAt(sort: Desc)])
   @@index([clientId, createdAt(sort: Desc)])
 }

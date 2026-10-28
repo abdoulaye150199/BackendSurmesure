@@ -1,7 +1,8 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import * as argon2 from 'argon2';
 import { AppointmentStatus, OrderStatus, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
-import { CreateAppointmentDto, CreateCatalogItemDto, CreateMeasurementDto, CreateOrderDto, CreatePersonnelDto, OrdersQueryDto, SaveClientMeasurementDto, UpdateMeasurementDto, UpdateOrderDto, UpdatePersonnelDto } from './commerce.dto';
+import { CreateAppointmentDto, CreateCatalogItemDto, CreateEmployeeAccountDto, CreateEmployeeMeasurementDto, CreateMeasurementDto, CreateOrderDto, CreatePersonnelDto, OrdersQueryDto, SaveClientMeasurementDto, UpdateMeasurementDto, UpdateOrderDto, UpdatePersonnelDto, UpdateStylistProfileDto, UpdateCatalogItemDto } from './commerce.dto';
 import { OrderAggregate } from '../domain/order.aggregate';
 
 @Injectable()
@@ -28,15 +29,105 @@ export class CommerceService {
   private async assertOrder(id: string, actorId: string) { const o = await this.db.order.findUnique({ where: { id }, include: { stylist: true } }); if (!o) throw new NotFoundException('Commande introuvable'); if (o.stylist.userId !== actorId) throw new ForbiddenException(); return o; }
   async listMeasurements(routeId: string, actorId: string, limit: number, cursor?: string, query?: string) { const s = await this.stylistProfile(routeId, actorId); const rows = await this.db.measurement.findMany({ where: { stylistId: s.id, ...(query && { OR: [{ clientName: { contains: query, mode: 'insensitive' } }, { clientPhone: { contains: query } }] }) }, take: limit + 1, ...(cursor && { cursor: { id: cursor }, skip: 1 }), orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] }); return this.page(rows.map(({ values, ...m }) => ({ ...m, measurements: values })), limit); }
   async createMeasurement(routeId: string, actorId: string, dto: CreateMeasurementDto) { const s = await this.stylistProfile(routeId, actorId); const { measurements, ...rest } = dto; const row = await this.db.measurement.create({ data: { ...rest, values: measurements, stylistId: s.id } }); return { ...row, measurements: row.values }; }
-  async updateMeasurement(id: string, actorId: string, dto: UpdateMeasurementDto) { const m = await this.db.measurement.findUnique({ where: { id }, include: { stylist: true } }); if (!m) throw new NotFoundException(); if (m.stylist.userId !== actorId) throw new ForbiddenException(); const { measurements, ...rest } = dto; return this.db.measurement.update({ where: { id }, data: { ...rest, values: measurements ?? undefined } }); }
+  async updateMeasurement(id: string, actorId: string, dto: UpdateMeasurementDto) { const m = await this.db.measurement.findUnique({ where: { id }, include: { stylist: true } }); if (!m) throw new NotFoundException(); if (m.stylist.userId !== actorId) throw new ForbiddenException(); const { measurements, ...rest } = dto; const updated = await this.db.measurement.update({ where: { id }, data: { ...rest, values: measurements ?? undefined } }); const { values, ...result } = updated; return { ...result, measurements: values }; }
   async deleteMeasurement(id: string, actorId: string) { await this.updateMeasurement(id, actorId, {}); await this.db.measurement.delete({ where: { id } }); return { success: true }; }
-  async listPersonnel(routeId: string, actorId: string) { const s = await this.stylistProfile(routeId, actorId); return this.db.personnel.findMany({ where: { stylistId: s.id }, orderBy: { hireDate: 'desc' } }); }
+  async listPersonnel(routeId: string, actorId: string) { const s = await this.stylistProfile(routeId, actorId); return this.db.personnel.findMany({ where: { stylistId: s.id }, include: { user: { select: { id: true, email: true, active: true } } }, orderBy: { hireDate: 'desc' } }); }
+  async createEmployeeAccount(routeId: string, actorId: string, dto: CreateEmployeeAccountDto) {
+    const stylist = await this.stylistProfile(routeId, actorId);
+    const passwordHash = await argon2.hash(dto.password);
+    try {
+      return await this.db.$transaction(async tx => {
+        const user = await tx.user.create({ data: {
+          firstName: dto.firstName.trim(), lastName: dto.lastName.trim(), email: dto.email.toLowerCase(),
+          phone: dto.phone, passwordHash, role: UserRole.EMPLOYEE,
+        } });
+        return tx.personnel.create({
+          data: { stylistId: stylist.id, userId: user.id, firstName: dto.firstName.trim(), lastName: dto.lastName.trim(), email: dto.email.toLowerCase(), phone: dto.phone, specialization: dto.specialization.trim() },
+          include: { user: { select: { id: true, email: true, active: true } } },
+        });
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('Cet e-mail ou ce numéro est déjà utilisé par un compte.');
+      }
+      throw error;
+    }
+  }
+  async setEmployeeAccess(routeId: string, personnelId: string, actorId: string, active: boolean) {
+    const stylist = await this.stylistProfile(routeId, actorId);
+    const person = await this.db.personnel.findFirst({ where: { id: personnelId, stylistId: stylist.id } });
+    if (!person) throw new NotFoundException('Employé introuvable');
+    await this.db.$transaction([
+      this.db.personnel.update({ where: { id: person.id }, data: { active } }),
+      ...(person.userId ? [this.db.user.update({ where: { id: person.userId }, data: { active, ...(!active && { refreshTokenHash: null }) } })] : []),
+    ]);
+    return { success: true, active };
+  }
+  private async employeeProfile(actorId: string) {
+    const person = await this.db.personnel.findFirst({
+      where: { userId: actorId, active: true, user: { is: { active: true, role: UserRole.EMPLOYEE } } },
+      include: { stylist: { select: { id: true, businessName: true } } },
+    });
+    if (!person) throw new ForbiddenException('Accès employé désactivé ou introuvable');
+    return person;
+  }
+  async employeeContext(actorId: string) { return this.employeeProfile(actorId); }
+  async listEmployeeMeasurements(actorId: string, limit: number, cursor?: string) {
+    const employee = await this.employeeProfile(actorId);
+    const rows = await this.db.measurement.findMany({ where: { stylistId: employee.stylistId }, take: limit + 1, ...(cursor && { cursor: { id: cursor }, skip: 1 }), orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
+    return this.page(rows.map(({ values, ...measurement }) => ({ ...measurement, measurements: values })), limit);
+  }
+  async createEmployeeMeasurement(actorId: string, dto: CreateEmployeeMeasurementDto) {
+    const employee = await this.employeeProfile(actorId);
+    this.validateMeasurementValues(dto.measurements);
+    const client = await this.db.user.findFirst({ where: { phone: dto.clientPhone, role: UserRole.CLIENT } });
+    const row = await this.db.measurement.create({ data: {
+      stylistId: employee.stylistId, clientId: client?.id ?? null, clientName: dto.clientName.trim(),
+      clientPhone: dto.clientPhone, values: dto.measurements, notes: dto.notes ?? '',
+    } });
+    return { ...row, measurements: row.values };
+  }
+  async updateEmployeeMeasurement(actorId: string, id: string, dto: UpdateMeasurementDto) {
+    const employee = await this.employeeProfile(actorId);
+    const measurement = await this.db.measurement.findFirst({ where: { id, stylistId: employee.stylistId } });
+    if (!measurement) throw new NotFoundException('Fiche de mesures introuvable');
+    if (dto.measurements) this.validateMeasurementValues(dto.measurements);
+    const updated = await this.db.measurement.update({ where: { id }, data: { values: dto.measurements ?? undefined, notes: dto.notes } });
+    return { ...updated, measurements: updated.values };
+  }
+  private validateMeasurementValues(values: Record<string, number>) {
+    if (!Object.keys(values).length || Object.values(values).some(value => !Number.isFinite(Number(value)) || Number(value) <= 0 || Number(value) > 300)) {
+      throw new BadRequestException('Saisissez au moins une mesure valide entre 0 et 300 cm.');
+    }
+  }
   async createPersonnel(routeId: string, actorId: string, dto: CreatePersonnelDto) { const s = await this.stylistProfile(routeId, actorId); return this.db.personnel.create({ data: { ...dto, stylistId: s.id } }); }
   async updatePersonnel(routeId: string, id: string, actorId: string, dto: UpdatePersonnelDto) { const s = await this.stylistProfile(routeId, actorId); const p = await this.db.personnel.findFirst({ where: { id, stylistId: s.id } }); if (!p) throw new NotFoundException(); return this.db.personnel.update({ where: { id }, data: dto }); }
   async deletePersonnel(id: string, actorId: string) { const p = await this.db.personnel.findUnique({ where: { id }, include: { stylist: true } }); if (!p) throw new NotFoundException(); if (p.stylist.userId !== actorId) throw new ForbiddenException(); await this.db.personnel.delete({ where: { id } }); return { success: true }; }
   listCatalog(limit: number, cursor?: string) { return this.db.catalogItem.findMany({ where: { active: true }, take: limit, ...(cursor && { cursor: { id: cursor }, skip: 1 }), orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] }); }
   getCatalog(id: string) { return this.db.catalogItem.findUniqueOrThrow({ where: { id }, include: { stylist: { include: { user: { select: { firstName: true, lastName: true, profileImage: true } } } } } }); }
   async createCatalog(actorId: string, dto: CreateCatalogItemDto) { const s = await this.db.stylistProfile.findUnique({ where: { userId: actorId } }); if (!s) throw new ForbiddenException(); return this.db.catalogItem.create({ data: { ...dto, stylistId: s.id } }); }
+  async updateCatalog(id: string, actorId: string, dto: UpdateCatalogItemDto) {
+    const item = await this.db.catalogItem.findUnique({ where: { id }, include: { stylist: true } });
+    if (!item) throw new NotFoundException('Création introuvable');
+    if (item.stylist.userId !== actorId) throw new ForbiddenException('Accès interdit à cette création');
+    return this.db.catalogItem.update({ where: { id }, data: dto });
+  }
+  async deactivateCatalog(id: string, actorId: string) {
+    const item = await this.db.catalogItem.findUnique({ where: { id }, include: { stylist: true } });
+    if (!item) throw new NotFoundException('Création introuvable');
+    if (item.stylist.userId !== actorId) throw new ForbiddenException('Accès interdit à cette création');
+    await this.db.catalogItem.update({ where: { id }, data: { active: false } });
+    return { success: true };
+  }
+  async updateStylistProfile(actorId: string, dto: UpdateStylistProfileDto) {
+    const profile = await this.db.stylistProfile.findUnique({ where: { userId: actorId } });
+    if (!profile) throw new NotFoundException('Profil styliste introuvable');
+    return this.db.stylistProfile.update({
+      where: { id: profile.id },
+      data: dto,
+      include: { user: { select: { firstName: true, lastName: true, profileImage: true } } },
+    });
+  }
   listStylists(limit: number, cursor?: string) { return this.db.stylistProfile.findMany({ take: limit, ...(cursor && { cursor: { id: cursor }, skip: 1 }), orderBy: [{ rating: 'desc' }, { id: 'asc' }], include: { user: { select: { firstName: true, lastName: true, profileImage: true } } } }); }
   async createAppointment(clientId: string, dto: CreateAppointmentDto) { return this.db.appointment.create({ data: { ...dto, clientId, startsAt: new Date(dto.startsAt) } }).catch((e: unknown) => { if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') throw new ForbiddenException('Ce créneau est déjà réservé'); throw e; }); }
   async clientAppointments(clientId: string) {
@@ -51,6 +142,16 @@ export class CommerceService {
     return this.db.appointment.findMany({
       where: { stylistId: stylist.id },
       orderBy: { startsAt: 'asc' },
+      include: { client: { select: { firstName: true, lastName: true, phone: true, profileImage: true } } },
+    });
+  }
+  async updateStylistAppointmentStatus(id: string, actorId: string, status: AppointmentStatus) {
+    const appointment = await this.db.appointment.findUnique({ where: { id }, include: { stylist: true } });
+    if (!appointment) throw new NotFoundException('Rendez-vous introuvable');
+    if (appointment.stylist.userId !== actorId) throw new ForbiddenException('Accès interdit à ce rendez-vous');
+    return this.db.appointment.update({
+      where: { id },
+      data: { status },
       include: { client: { select: { firstName: true, lastName: true, phone: true, profileImage: true } } },
     });
   }

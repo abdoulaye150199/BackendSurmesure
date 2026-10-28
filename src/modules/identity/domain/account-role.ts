@@ -2,6 +2,7 @@
 export const AccountRole = {
   CLIENT: 'CLIENT',
   STYLIST: 'STYLIST',
+  EMPLOYEE: 'EMPLOYEE',
   ADMIN: 'ADMIN',
 } as const;
 

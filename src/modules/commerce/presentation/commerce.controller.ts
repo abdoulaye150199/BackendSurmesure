@@ -7,7 +7,7 @@ import { AccountRole } from '../../identity/domain/account-role';
 import { Roles } from '../../identity/presentation/roles.decorator';
 import { RolesGuard } from '../../identity/presentation/roles.guard';
 import { CommerceService } from '../application/commerce.service';
-import { AdminUserStatusDto, CreateAppointmentDto, CreateCatalogItemDto, CreateMeasurementDto, CreateOrderDto, CreatePersonnelDto, MeasurementsQueryDto, NotifyDto, OrdersQueryDto, SaveClientMeasurementDto, UpdateMeasurementDto, UpdateOrderDto, UpdatePersonnelDto } from '../application/commerce.dto';
+import { AdminUserStatusDto, CreateAppointmentDto, CreateCatalogItemDto, CreateEmployeeAccountDto, CreateEmployeeMeasurementDto, CreateMeasurementDto, CreateOrderDto, CreatePersonnelDto, EmployeeAccessDto, MeasurementsQueryDto, NotifyDto, OrdersQueryDto, SaveClientMeasurementDto, UpdateAppointmentStatusDto, UpdateCatalogItemDto, UpdateMeasurementDto, UpdateOrderDto, UpdatePersonnelDto, UpdateStylistProfileDto } from '../application/commerce.dto';
 
 @ApiTags('stylist workspace') @ApiBearerAuth() @Roles(AccountRole.STYLIST) @UseGuards(JwtAuthGuard, RolesGuard) @Controller()
 export class StylistWorkspaceController {
@@ -20,15 +20,30 @@ export class StylistWorkspaceController {
   @Delete('orders/:id') deleteOrder(@Param('id') id: string, @CurrentUser() u: AuthUser) { return this.service.deleteOrder(id, u.sub); }
   @Get('stylist/:stylistId/measurements') measurements(@Param('stylistId') id: string, @CurrentUser() u: AuthUser, @Query() q: PageQueryDto) { return this.service.listMeasurements(id, u.sub, q.limit, q.cursor); }
   @Get('stylist/:stylistId/appointments') appointments(@Param('stylistId') id: string, @CurrentUser() u: AuthUser) { return this.service.stylistAppointments(id, u.sub); }
+  @Patch('appointments/:id/status') updateAppointmentStatus(@Param('id') id: string, @CurrentUser() u: AuthUser, @Body() dto: UpdateAppointmentStatusDto) { return this.service.updateStylistAppointmentStatus(id, u.sub, dto.status); }
   @Get('stylist/:stylistId/measurements/search') searchMeasurements(@Param('stylistId') id: string, @CurrentUser() u: AuthUser, @Query() q: MeasurementsQueryDto) { return this.service.listMeasurements(id, u.sub, q.limit, q.cursor, q.q); }
   @Post('stylist/:stylistId/measurements') addMeasurement(@Param('stylistId') id: string, @CurrentUser() u: AuthUser, @Body() dto: CreateMeasurementDto) { return this.service.createMeasurement(id, u.sub, dto); }
   @Put('measurements/:id') updateMeasurement(@Param('id') id: string, @CurrentUser() u: AuthUser, @Body() dto: UpdateMeasurementDto) { return this.service.updateMeasurement(id, u.sub, dto); }
   @Delete('measurements/:id') deleteMeasurement(@Param('id') id: string, @CurrentUser() u: AuthUser) { return this.service.deleteMeasurement(id, u.sub); }
   @Get('stylist/:stylistId/personnel') personnel(@Param('stylistId') id: string, @CurrentUser() u: AuthUser) { return this.service.listPersonnel(id, u.sub); }
+  @Post('stylist/:stylistId/personnel/accounts') createEmployeeAccount(@Param('stylistId') id: string, @CurrentUser() u: AuthUser, @Body() dto: CreateEmployeeAccountDto) { return this.service.createEmployeeAccount(id, u.sub, dto); }
+  @Patch('stylist/:stylistId/personnel/:id/access') setEmployeeAccess(@Param('stylistId') s: string, @Param('id') id: string, @CurrentUser() u: AuthUser, @Body() dto: EmployeeAccessDto) { return this.service.setEmployeeAccess(s, id, u.sub, dto.active); }
   @Post('stylist/:stylistId/personnel') addPersonnel(@Param('stylistId') id: string, @CurrentUser() u: AuthUser, @Body() dto: CreatePersonnelDto) { return this.service.createPersonnel(id, u.sub, dto); }
   @Put('stylist/:stylistId/personnel/:id') updatePersonnel(@Param('stylistId') s: string, @Param('id') id: string, @CurrentUser() u: AuthUser, @Body() dto: UpdatePersonnelDto) { return this.service.updatePersonnel(s, id, u.sub, dto); }
   @Delete('personnel/:id') deletePersonnel(@Param('id') id: string, @CurrentUser() u: AuthUser) { return this.service.deletePersonnel(id, u.sub); }
   @Post('catalog') addCatalog(@CurrentUser() u: AuthUser, @Body() dto: CreateCatalogItemDto) { return this.service.createCatalog(u.sub, dto); }
+  @Patch('catalog/:id') updateCatalog(@Param('id') id: string, @CurrentUser() u: AuthUser, @Body() dto: UpdateCatalogItemDto) { return this.service.updateCatalog(id, u.sub, dto); }
+  @Delete('catalog/:id') deleteCatalog(@Param('id') id: string, @CurrentUser() u: AuthUser) { return this.service.deactivateCatalog(id, u.sub); }
+  @Put('stylist/profile') updateProfile(@CurrentUser() u: AuthUser, @Body() dto: UpdateStylistProfileDto) { return this.service.updateStylistProfile(u.sub, dto); }
+}
+
+@ApiTags('employee workspace') @ApiBearerAuth() @Roles(AccountRole.EMPLOYEE) @UseGuards(JwtAuthGuard, RolesGuard) @Controller('employee')
+export class EmployeeWorkspaceController {
+  constructor(private readonly service: CommerceService) {}
+  @Get('me') context(@CurrentUser() u: AuthUser) { return this.service.employeeContext(u.sub); }
+  @Get('measurements') measurements(@CurrentUser() u: AuthUser, @Query() q: PageQueryDto) { return this.service.listEmployeeMeasurements(u.sub, q.limit, q.cursor); }
+  @Post('measurements') createMeasurement(@CurrentUser() u: AuthUser, @Body() dto: CreateEmployeeMeasurementDto) { return this.service.createEmployeeMeasurement(u.sub, dto); }
+  @Put('measurements/:id') updateMeasurement(@Param('id') id: string, @CurrentUser() u: AuthUser, @Body() dto: UpdateMeasurementDto) { return this.service.updateEmployeeMeasurement(u.sub, id, dto); }
 }
 
 @ApiTags('public') @Controller()
