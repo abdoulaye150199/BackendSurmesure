@@ -63,6 +63,18 @@ export class CommerceService {
     ]);
     return { success: true, active };
   }
+  async removeEmployee(routeId: string, personnelId: string, actorId: string) {
+    const stylist = await this.stylistProfile(routeId, actorId);
+    const person = await this.db.personnel.findFirst({ where: { id: personnelId, stylistId: stylist.id } });
+    if (!person) throw new NotFoundException('Employé introuvable');
+    await this.db.$transaction(async tx => {
+      if (person.userId) {
+        await tx.user.update({ where: { id: person.userId }, data: { active: false, refreshTokenHash: null } });
+      }
+      await tx.personnel.delete({ where: { id: person.id } });
+    });
+    return { success: true };
+  }
   private async employeeProfile(actorId: string) {
     const person = await this.db.personnel.findFirst({
       where: { userId: actorId, active: true, user: { is: { active: true, role: UserRole.EMPLOYEE } } },

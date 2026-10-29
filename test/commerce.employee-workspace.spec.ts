@@ -10,6 +10,8 @@ describe('employee workspace access', () => {
   };
   const makeService = () => {
     const db = {
+      stylistProfile: { findFirst: jest.fn().mockResolvedValue({ id: 'atelier-id', userId: 'stylist-user-id' }) },
+      $transaction: jest.fn(),
       personnel: { findFirst: jest.fn().mockResolvedValue(employee) },
       measurement: { findMany: jest.fn(), create: jest.fn() },
       user: { findFirst: jest.fn().mockResolvedValue(null) },
@@ -42,5 +44,21 @@ describe('employee workspace access', () => {
       data: expect.objectContaining({ stylistId: 'atelier-id', clientId: null, clientName: 'Fatou Ndiaye' }),
     }));
     expect(result.measurements).toEqual({ taille: 74 });
+  });
+
+  it('removes an employee from the atelier and revokes their login', async () => {
+    const { service, db } = makeService();
+    const tx = {
+      personnel: { delete: jest.fn().mockResolvedValue(employee) },
+      user: { update: jest.fn().mockResolvedValue({}) },
+    };
+    db.$transaction.mockImplementation(async callback => callback(tx as never));
+
+    await expect(service.removeEmployee('atelier-id', 'personnel-id', 'stylist-user-id'))
+      .resolves.toEqual({ success: true });
+
+    expect(db.personnel.findFirst).toHaveBeenCalledWith({ where: { id: 'personnel-id', stylistId: 'atelier-id' } });
+    expect(tx.user.update).toHaveBeenCalledWith({ where: { id: 'employee-user-id' }, data: { active: false, refreshTokenHash: null } });
+    expect(tx.personnel.delete).toHaveBeenCalledWith({ where: { id: 'personnel-id' } });
   });
 });

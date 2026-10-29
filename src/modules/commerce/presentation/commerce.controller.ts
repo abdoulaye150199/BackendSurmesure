@@ -28,6 +28,7 @@ export class StylistWorkspaceController {
   @Get('stylist/:stylistId/personnel') personnel(@Param('stylistId') id: string, @CurrentUser() u: AuthUser) { return this.service.listPersonnel(id, u.sub); }
   @Post('stylist/:stylistId/personnel/accounts') createEmployeeAccount(@Param('stylistId') id: string, @CurrentUser() u: AuthUser, @Body() dto: CreateEmployeeAccountDto) { return this.service.createEmployeeAccount(id, u.sub, dto); }
   @Patch('stylist/:stylistId/personnel/:id/access') setEmployeeAccess(@Param('stylistId') s: string, @Param('id') id: string, @CurrentUser() u: AuthUser, @Body() dto: EmployeeAccessDto) { return this.service.setEmployeeAccess(s, id, u.sub, dto.active); }
+  @Delete('stylist/:stylistId/personnel/:id') removeEmployee(@Param('stylistId') s: string, @Param('id') id: string, @CurrentUser() u: AuthUser) { return this.service.removeEmployee(s, id, u.sub); }
   @Post('stylist/:stylistId/personnel') addPersonnel(@Param('stylistId') id: string, @CurrentUser() u: AuthUser, @Body() dto: CreatePersonnelDto) { return this.service.createPersonnel(id, u.sub, dto); }
   @Put('stylist/:stylistId/personnel/:id') updatePersonnel(@Param('stylistId') s: string, @Param('id') id: string, @CurrentUser() u: AuthUser, @Body() dto: UpdatePersonnelDto) { return this.service.updatePersonnel(s, id, u.sub, dto); }
   @Delete('personnel/:id') deletePersonnel(@Param('id') id: string, @CurrentUser() u: AuthUser) { return this.service.deletePersonnel(id, u.sub); }
