@@ -122,9 +122,13 @@ export class CommerceService {
   async updateStylistProfile(actorId: string, dto: UpdateStylistProfileDto) {
     const profile = await this.db.stylistProfile.findUnique({ where: { userId: actorId } });
     if (!profile) throw new NotFoundException('Profil styliste introuvable');
+    const { profileImage, ...profileData } = dto;
     return this.db.stylistProfile.update({
       where: { id: profile.id },
-      data: dto,
+      data: {
+        ...profileData,
+        ...(profileImage !== undefined ? { user: { update: { profileImage } } } : {}),
+      },
       include: { user: { select: { firstName: true, lastName: true, profileImage: true } } },
     });
   }

@@ -1,6 +1,6 @@
 import { AppointmentStatus, OrderStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsArray, IsBoolean, IsDateString, IsEmail, IsEnum, IsNumber, IsObject, IsOptional, IsPhoneNumber, IsString, IsUUID, Min, MinLength } from 'class-validator';
+import { IsArray, IsBoolean, IsDateString, IsEmail, IsEnum, IsNumber, IsObject, IsOptional, IsPhoneNumber, IsString, IsUUID, MaxLength, Min, MinLength } from 'class-validator';
 import { PageQueryDto } from '../../../shared/application/page.dto';
 export class OrdersQueryDto extends PageQueryDto { @IsOptional() @IsEnum(OrderStatus) status?: OrderStatus; }
 export class MeasurementsQueryDto extends PageQueryDto { @IsOptional() @IsString() q?: string; }
@@ -55,6 +55,7 @@ export class UpdateStylistProfileDto {
   @IsOptional() @IsString() @MinLength(2) businessName?: string;
   @IsOptional() @IsString() about?: string;
   @IsOptional() @IsArray() @IsString({ each: true }) specialties?: string[];
+  @IsOptional() @IsString() @MaxLength(100_000) profileImage?: string;
 }
 export class UpdateAppointmentStatusDto { @IsEnum(AppointmentStatus) status!: AppointmentStatus; }
 export class CreateAppointmentDto { @IsUUID() stylistId!: string; @IsString() service!: string; @IsDateString() startsAt!: string; @IsOptional() @IsString() notes?: string; }
