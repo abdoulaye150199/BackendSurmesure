@@ -29,6 +29,5 @@ describe('stylist registration validation', () => {
 
     const errors = await validate(dto, { whitelist: true, forbidNonWhitelisted: true });
     expect(errors).toEqual([]);
-    expect(dto.role).toBe('CLIENT');
   });
 });

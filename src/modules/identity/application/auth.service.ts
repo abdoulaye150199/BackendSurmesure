@@ -12,9 +12,10 @@ export class AuthService {
   constructor(@Inject(USER_REPOSITORY) private readonly users: UserRepository, private readonly jwt: JwtService, private readonly config: ConfigService) {}
   async register(dto: RegisterDto | StylistRegisterDto) {
     if (await this.users.findByEmail(dto.email)) throw new ConflictException('Un compte utilise déjà cet email');
+    const role = 'businessName' in dto ? AccountRole.STYLIST : AccountRole.CLIENT;
     let user: AccountRecord;
     try {
-      user = await this.users.create({ ...dto, passwordHash: await argon2.hash(dto.password), role: dto.role ?? AccountRole.CLIENT });
+      user = await this.users.create({ ...dto, passwordHash: await argon2.hash(dto.password), role });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException('Cet e-mail ou ce numéro de téléphone est déjà associé à un compte.');

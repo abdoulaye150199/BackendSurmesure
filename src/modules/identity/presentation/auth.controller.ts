@@ -11,7 +11,7 @@ import { RolesGuard } from './roles.guard';
 @ApiTags('auth') @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
-  @Post('register') @Throttle({ default: { limit: 5, ttl: 60_000 } }) register(@Body() dto: RegisterDto) { return this.auth.register({ ...dto, role: AccountRole.CLIENT }); }
+  @Post('register') @Throttle({ default: { limit: 5, ttl: 60_000 } }) register(@Body() dto: RegisterDto) { return this.auth.register(dto); }
   @Post('login') @Throttle({ default: { limit: 10, ttl: 60_000 } }) login(@Body() dto: LoginDto) { return this.auth.login(dto); }
   @Post('client/login') @Throttle({ default: { limit: 10, ttl: 60_000 } }) clientLogin(@Body() dto: LoginDto) { return this.auth.login(dto, AccountRole.CLIENT); }
   @Post('stylist/signup') @Throttle({ default: { limit: 5, ttl: 60_000 } }) stylistSignup(@Body() dto: StylistRegisterDto) { return this.auth.register({ ...dto, role: AccountRole.STYLIST }); }

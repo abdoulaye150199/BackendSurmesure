@@ -17,7 +17,7 @@ describe('account registration', () => {
 
     await expect(service.register({
       firstName: 'Fatou', lastName: 'Ndiaye', email: 'fatou@example.com',
-      phone: '+221770000000', password: 'MotDePasse!2026', role: 'CLIENT',
+      phone: '+221770000000', password: 'MotDePasse!2026',
     })).rejects.toBeInstanceOf(ConflictException);
   });
 });
