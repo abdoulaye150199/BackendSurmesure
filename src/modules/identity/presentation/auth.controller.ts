@@ -14,7 +14,7 @@ export class AuthController {
   @Post('register') @Throttle({ default: { limit: 5, ttl: 60_000 } }) register(@Body() dto: RegisterDto) { return this.auth.register({ ...dto, role: AccountRole.CLIENT }); }
   @Post('login') @Throttle({ default: { limit: 10, ttl: 60_000 } }) login(@Body() dto: LoginDto) { return this.auth.login(dto); }
   @Post('client/login') @Throttle({ default: { limit: 10, ttl: 60_000 } }) clientLogin(@Body() dto: LoginDto) { return this.auth.login(dto, AccountRole.CLIENT); }
-  @Post('stylist/signup') @Throttle({ default: { limit: 5, ttl: 60_000 } }) stylistSignup(@Body() dto: StylistRegisterDto) { return this.auth.register(dto); }
+  @Post('stylist/signup') @Throttle({ default: { limit: 5, ttl: 60_000 } }) stylistSignup(@Body() dto: StylistRegisterDto) { return this.auth.register({ ...dto, role: AccountRole.STYLIST }); }
   @Post('stylist/login') stylistLogin(@Body() dto: LoginDto) { return this.auth.login(dto, AccountRole.STYLIST); }
   @Post('employee/login') @Throttle({ default: { limit: 10, ttl: 60_000 } }) employeeLogin(@Body() dto: LoginDto) { return this.auth.login(dto, AccountRole.EMPLOYEE); }
   @Post('admin/login') @Throttle({ default: { limit: 5, ttl: 60_000 } }) adminLogin(@Body() dto: LoginDto) { return this.auth.login(dto, AccountRole.ADMIN); }

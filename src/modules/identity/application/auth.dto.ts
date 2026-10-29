@@ -15,7 +15,7 @@ export class StylistRegisterDto {
   @IsEmail() email!: string;
   @IsPhoneNumber() phone!: string;
   @IsString() @MinLength(10) password!: string;
-  readonly role = AccountRole.STYLIST;
+  @IsEnum(AccountRole) readonly role = AccountRole.STYLIST;
   @IsString() @MinLength(2) businessName!: string;
 }
 export class LoginDto { @IsEmail() email!: string; @IsString() @MinLength(1) password!: string; }
