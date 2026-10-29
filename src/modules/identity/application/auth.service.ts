@@ -13,9 +13,19 @@ export class AuthService {
   async register(dto: RegisterDto | StylistRegisterDto) {
     if (await this.users.findByEmail(dto.email)) throw new ConflictException('Un compte utilise déjà cet email');
     const role = 'businessName' in dto ? AccountRole.STYLIST : AccountRole.CLIENT;
+    const { firstName, lastName, email, phone, password } = dto;
+    const businessName = 'businessName' in dto ? dto.businessName : undefined;
     let user: AccountRecord;
     try {
-      user = await this.users.create({ ...dto, passwordHash: await argon2.hash(dto.password), role });
+      user = await this.users.create({
+        firstName,
+        lastName,
+        email,
+        phone,
+        passwordHash: await argon2.hash(password),
+        role,
+        ...(businessName ? { businessName } : {}),
+      });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException('Cet e-mail ou ce numéro de téléphone est déjà associé à un compte.');
