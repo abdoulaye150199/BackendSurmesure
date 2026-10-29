@@ -1,6 +1,7 @@
 import { ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { Prisma } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { AccountRecord, USER_REPOSITORY, UserRepository } from '../domain/user.repository';
 import { LoginDto, RegisterDto, StylistRegisterDto } from './auth.dto';
@@ -11,7 +12,15 @@ export class AuthService {
   constructor(@Inject(USER_REPOSITORY) private readonly users: UserRepository, private readonly jwt: JwtService, private readonly config: ConfigService) {}
   async register(dto: RegisterDto | StylistRegisterDto) {
     if (await this.users.findByEmail(dto.email)) throw new ConflictException('Un compte utilise déjà cet email');
-    const user = await this.users.create({ ...dto, passwordHash: await argon2.hash(dto.password), role: dto.role ?? AccountRole.CLIENT });
+    let user: AccountRecord;
+    try {
+      user = await this.users.create({ ...dto, passwordHash: await argon2.hash(dto.password), role: dto.role ?? AccountRole.CLIENT });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('Cet e-mail ou ce numéro de téléphone est déjà associé à un compte.');
+      }
+      throw error;
+    }
     return this.issueTokens(user);
   }
   async login(dto: LoginDto, requiredRole?: AccountRole) {
