@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "nest build",
-    "start": "node dist/src/main.js",
+    "start": "prisma migrate deploy && node dist/src/main.js",
     "dev": "nest start --watch",
     "start:dev": "nest start --watch",
     "lint": "eslint \"{src,test}/**/*.ts\"",
@@ -32,6 +32,7 @@
     "helmet": "^8.1.0",
     "nestjs-pino": "^4.4.0",
     "pino-http": "^10.4.0",
+    "prisma": "^6.10.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "zod": "^3.25.0"
@@ -46,7 +47,6 @@
     "@types/supertest": "^6.0.3",
     "eslint": "^9.28.0",
     "jest": "^29.7.0",
-    "prisma": "^6.10.0",
     "source-map-support": "^0.5.21",
     "supertest": "^7.1.1",
     "ts-jest": "^29.4.0",
