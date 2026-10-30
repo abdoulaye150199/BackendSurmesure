@@ -115,7 +115,22 @@ export class CommerceService {
   async createPersonnel(routeId: string, actorId: string, dto: CreatePersonnelDto) { const s = await this.stylistProfile(routeId, actorId); return this.db.personnel.create({ data: { ...dto, stylistId: s.id } }); }
   async updatePersonnel(routeId: string, id: string, actorId: string, dto: UpdatePersonnelDto) { const s = await this.stylistProfile(routeId, actorId); const p = await this.db.personnel.findFirst({ where: { id, stylistId: s.id } }); if (!p) throw new NotFoundException(); return this.db.personnel.update({ where: { id }, data: dto }); }
   async deletePersonnel(id: string, actorId: string) { const p = await this.db.personnel.findUnique({ where: { id }, include: { stylist: true } }); if (!p) throw new NotFoundException(); if (p.stylist.userId !== actorId) throw new ForbiddenException(); await this.db.personnel.delete({ where: { id } }); return { success: true }; }
-  listCatalog(limit: number, cursor?: string) { return this.db.catalogItem.findMany({ where: { active: true }, take: limit, ...(cursor && { cursor: { id: cursor }, skip: 1 }), orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] }); }
+  async listCatalog(limit: number, cursor?: string) {
+    const items = await this.db.catalogItem.findMany({ where: { active: true }, take: limit, ...(cursor && { cursor: { id: cursor }, skip: 1 }), orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], include: { _count: { select: { likes: true } } } });
+    return items.map(({ _count, ...item }) => ({ ...item, likesCount: _count.likes }));
+  }
+  async setCatalogLike(id: string, visitorId: string, liked: boolean) {
+    const item = await this.db.catalogItem.findFirst({ where: { id, active: true }, select: { id: true } });
+    if (!item) throw new NotFoundException('Création introuvable');
+    return this.db.$transaction(async tx => {
+      if (liked) {
+        await tx.catalogLike.createMany({ data: [{ catalogItemId: id, visitorId }], skipDuplicates: true });
+      } else {
+        await tx.catalogLike.deleteMany({ where: { catalogItemId: id, visitorId } });
+      }
+      return { liked, likesCount: await tx.catalogLike.count({ where: { catalogItemId: id } }) };
+    });
+  }
   getCatalog(id: string) { return this.db.catalogItem.findUniqueOrThrow({ where: { id }, include: { stylist: { include: { user: { select: { firstName: true, lastName: true, profileImage: true } } } } } }); }
   async createCatalog(actorId: string, dto: CreateCatalogItemDto) { const s = await this.db.stylistProfile.findUnique({ where: { userId: actorId } }); if (!s) throw new ForbiddenException(); return this.db.catalogItem.create({ data: { ...dto, stylistId: s.id } }); }
   async updateCatalog(id: string, actorId: string, dto: UpdateCatalogItemDto) {

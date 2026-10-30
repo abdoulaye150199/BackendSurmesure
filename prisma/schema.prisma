@@ -132,8 +132,17 @@ model CatalogItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   stylist StylistProfile @relation(fields: [stylistId], references: [id])
+  likes CatalogLike[]
   @@index([active, createdAt(sort: Desc)])
   @@index([stylistId, active])
+}
+
+model CatalogLike {
+  catalogItemId String @db.Uuid
+  visitorId String @db.Uuid
+  createdAt DateTime @default(now())
+  catalogItem CatalogItem @relation(fields: [catalogItemId], references: [id], onDelete: Cascade)
+  @@id([catalogItemId, visitorId])
 }
 
 model Appointment {

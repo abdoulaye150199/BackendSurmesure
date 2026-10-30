@@ -7,7 +7,7 @@ import { AccountRole } from '../../identity/domain/account-role';
 import { Roles } from '../../identity/presentation/roles.decorator';
 import { RolesGuard } from '../../identity/presentation/roles.guard';
 import { CommerceService } from '../application/commerce.service';
-import { AdminUserStatusDto, CreateAppointmentDto, CreateCatalogItemDto, CreateEmployeeAccountDto, CreateEmployeeMeasurementDto, CreateMeasurementDto, CreateOrderDto, CreatePersonnelDto, EmployeeAccessDto, MeasurementsQueryDto, NotifyDto, OrdersQueryDto, SaveClientMeasurementDto, UpdateAppointmentStatusDto, UpdateCatalogItemDto, UpdateMeasurementDto, UpdateOrderDto, UpdatePersonnelDto, UpdateStylistProfileDto } from '../application/commerce.dto';
+import { CatalogLikeDto, AdminUserStatusDto, CreateAppointmentDto, CreateCatalogItemDto, CreateEmployeeAccountDto, CreateEmployeeMeasurementDto, CreateMeasurementDto, CreateOrderDto, CreatePersonnelDto, EmployeeAccessDto, MeasurementsQueryDto, NotifyDto, OrdersQueryDto, SaveClientMeasurementDto, UpdateAppointmentStatusDto, UpdateCatalogItemDto, UpdateMeasurementDto, UpdateOrderDto, UpdatePersonnelDto, UpdateStylistProfileDto } from '../application/commerce.dto';
 
 @ApiTags('stylist workspace') @ApiBearerAuth() @Roles(AccountRole.STYLIST) @UseGuards(JwtAuthGuard, RolesGuard) @Controller()
 export class StylistWorkspaceController {
@@ -51,6 +51,7 @@ export class EmployeeWorkspaceController {
 export class PublicController {
   constructor(private readonly service: CommerceService) {}
   @Get('catalog') catalog(@Query() q: PageQueryDto) { return this.service.listCatalog(q.limit, q.cursor); }
+  @Post('catalog/:id/like') likeCatalog(@Param('id') id: string, @Body() dto: CatalogLikeDto) { return this.service.setCatalogLike(id, dto.visitorId, dto.liked); }
   @Get('catalog/:id') catalogItem(@Param('id') id: string) { return this.service.getCatalog(id); }
   @Get('stylists') stylists(@Query() q: PageQueryDto) { return this.service.listStylists(q.limit, q.cursor); }
   @Get('home') async home() { const [catalog, stylists] = await Promise.all([this.service.listCatalog(6), this.service.listStylists(6)]); return { heroTitle: 'Mode sur mesure', highlightedCategories: ['Robes', 'Costumes', 'Mariage'], catalog, stylists }; }

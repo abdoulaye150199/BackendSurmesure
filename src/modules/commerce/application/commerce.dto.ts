@@ -42,6 +42,10 @@ export class UpdatePersonnelDto {
   @IsOptional() @IsPhoneNumber() phone?: string; @IsOptional() @IsString() specialization?: string; @IsOptional() @IsBoolean() active?: boolean;
 }
 export class EmployeeAccessDto { @IsBoolean() active!: boolean; }
+export class CatalogLikeDto {
+  @IsUUID() visitorId!: string;
+  @IsBoolean() liked!: boolean;
+}
 export class CreateCatalogItemDto {
   @IsString() title!: string; @IsOptional() @IsString() description = ''; @IsString() imageUrl!: string;
   @Type(() => Number) @IsNumber() @Min(0) price!: number; @IsOptional() @IsString() currency = 'XOF'; @IsArray() @IsString({ each: true }) availableColors!: string[];
