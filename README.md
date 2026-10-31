@@ -22,6 +22,16 @@ Flutter peut être lancé avec `--dart-define=API_BASE=http://10.0.2.2:3000/v1` 
 
 En développement, CORS accepte les origines `localhost` et `127.0.0.1` sur tout port afin de prendre en charge le port aléatoire de Flutter Web. En production, seules les origines exactes déclarées dans `CORS_ORIGINS` sont autorisées. Pour le déploiement Render, ajoutez `https://surmesure-front.vercel.app` à `CORS_ORIGINS` (et toute autre origine frontend utilisée) ; cette origine Vercel est aussi autorisée explicitement par l’application.
 
+## Ping Render toutes les 15 minutes
+
+Le workflow `.github/workflows/render-ping.yml` appelle `https://backendsurmesure.onrender.com/v1/health/live` aux minutes 07, 22, 37 et 52 de chaque heure. Il s’exécute sur GitHub, même quand le backend est en veille, sans accéder à la base de données.
+
+Pour l’activer, poussez ce fichier sur la branche par défaut du dépôt GitHub, puis vérifiez que GitHub Actions est autorisé. Un lancement manuel est disponible dans **Actions → Ping Render → Run workflow**. Les échecs sont visibles dans les journaux du workflow.
+
+Render met les services gratuits en veille après 15 minutes sans trafic entrant. Ce ping périodique peut les réveiller, mais ne garantit pas une disponibilité continue : GitHub peut retarder les tâches planifiées. Dans un dépôt public, GitHub désactive aussi les planifications après 60 jours sans activité.
+
+Références : [Render Free](https://render.com/docs/free), [planifications GitHub Actions](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
+
 ## Architecture
 
 ```text

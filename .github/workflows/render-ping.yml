@@ -1,0 +1,26 @@
+name: Ping Render
+
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: render-ping
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Réveiller le backend Render
+        env:
+          HEALTH_URL: https://backendsurmesure.onrender.com/v1/health/live
+        run: |
+          curl --fail --show-error --silent --location \
+            --connect-timeout 20 --max-time 90 \
+            --retry 2 --retry-delay 10 --retry-max-time 240 \
+            "$HEALTH_URL"
