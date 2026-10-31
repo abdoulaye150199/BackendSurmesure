@@ -11,6 +11,7 @@ export interface AccountRecord {
   refreshTokenHash: string | null;
   profileImage: string;
   active: boolean;
+  mustChangePassword?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -20,5 +21,6 @@ export interface UserRepository {
   findByEmail(email: string): Promise<AccountRecord | null>;
   findById(id: string): Promise<AccountRecord | null>;
   create(data: CreateAccount): Promise<AccountRecord>;
+  changePassword(id: string, expectedHash: string, passwordHash: string): Promise<boolean>;
   setRefreshTokenHash(id: string, hash: string | null): Promise<void>;
 }

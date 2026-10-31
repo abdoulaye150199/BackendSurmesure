@@ -1,10 +1,10 @@
-import { ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { AccountRecord, USER_REPOSITORY, UserRepository } from '../domain/user.repository';
-import { LoginDto, RegisterDto, StylistRegisterDto } from './auth.dto';
+import { ChangeEmployeePasswordDto, LoginDto, RegisterDto, StylistRegisterDto } from './auth.dto';
 import { AccountRole } from '../domain/account-role';
 
 @Injectable()
@@ -46,6 +46,16 @@ export class AuthService {
       if (!user?.refreshTokenHash || !await argon2.verify(user.refreshTokenHash, token)) throw new UnauthorizedException();
       return this.issueTokens(user);
     } catch { throw new UnauthorizedException('Refresh token invalide'); }
+  }
+  async changeEmployeePassword(userId: string, dto: ChangeEmployeePasswordDto) {
+    const user = await this.users.findById(userId);
+    if (!user?.active || user.role !== AccountRole.EMPLOYEE || !await argon2.verify(user.passwordHash, dto.currentPassword)) {
+      throw new UnauthorizedException('Le mot de passe actuel est incorrect.');
+    }
+    if (dto.currentPassword === dto.newPassword) throw new BadRequestException('Choisissez un nouveau mot de passe différent.');
+    const passwordHash = await argon2.hash(dto.newPassword);
+    if (!await this.users.changePassword(userId, user.passwordHash, passwordHash)) throw new ConflictException('Le compte a été modifié. Reconnectez-vous avant de réessayer.');
+    return this.issueTokens({ ...user, passwordHash, mustChangePassword: false });
   }
   async logout(userId: string) { await this.users.setRefreshTokenHash(userId, null); return { success: true }; }
   async me(userId: string) { const user = await this.users.findById(userId); if (!user) throw new UnauthorizedException(); return this.publicUser(user); }

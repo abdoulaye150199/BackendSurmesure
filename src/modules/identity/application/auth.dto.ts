@@ -1,5 +1,5 @@
 import { ApiHideProperty, ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsPhoneNumber, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsPhoneNumber, IsString, MinLength, MaxLength } from 'class-validator';
 import { AccountRole } from '../domain/account-role';
 export class RegisterDto {
   @ApiProperty({ example: 'Fatou', minLength: 2 })
@@ -31,3 +31,8 @@ export class StylistRegisterDto {
 }
 export class LoginDto { @IsEmail() email!: string; @IsString() @MinLength(1) password!: string; }
 export class RefreshDto { @IsString() refreshToken!: string; }
+
+export class ChangeEmployeePasswordDto {
+  @IsString() @MinLength(1) @MaxLength(128) currentPassword!: string;
+  @IsString() @MinLength(10) @MaxLength(128) newPassword!: string;
+}

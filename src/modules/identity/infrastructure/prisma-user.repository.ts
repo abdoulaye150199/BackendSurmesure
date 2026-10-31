@@ -9,5 +9,9 @@ export class PrismaUserRepository implements UserRepository {
   create({ businessName, ...data }: CreateAccount) { return this.db.user.create({ data: {
     ...data, email: data.email.toLowerCase(), stylist: data.role === 'STYLIST' ? { create: { businessName: businessName!, specialties: [] } } : undefined,
   } }); }
+  async changePassword(id: string, expectedHash: string, passwordHash: string) {
+    const result = await this.db.user.updateMany({ where: { id, passwordHash: expectedHash, active: true, role: 'EMPLOYEE' }, data: { passwordHash, mustChangePassword: false, refreshTokenHash: null } });
+    return result.count === 1;
+  }
   async setRefreshTokenHash(id: string, refreshTokenHash: string | null) { await this.db.user.update({ where: { id }, data: { refreshTokenHash } }); }
 }

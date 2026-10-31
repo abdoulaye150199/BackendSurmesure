@@ -20,6 +20,22 @@ export class CommerceService {
   }
   async createOrder(routeId: string, actorId: string, dto: CreateOrderDto) {
     const stylist = await this.stylistProfile(routeId, actorId);
+    return this.persistOrder(stylist.id, actorId, dto, MeasurementSource.stylist);
+  }
+  async createEmployeeOrder(actorId: string, dto: CreateOrderDto) {
+    const employee = await this.employeeProfile(actorId);
+    return this.persistOrder(employee.stylistId, actorId, dto, MeasurementSource.employee);
+  }
+  async listEmployeeOrders(actorId: string, q: OrdersQueryDto) {
+    const employee = await this.employeeProfile(actorId);
+    const rows = await this.db.order.findMany({ where: { stylistId: employee.stylistId, status: q.status }, take: q.limit + 1, ...(q.cursor && { cursor: { id: q.cursor }, skip: 1 }), orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
+    return this.page(rows, q.limit);
+  }
+  async createEmployeeCatalog(actorId: string, dto: CreateCatalogItemDto) {
+    const employee = await this.employeeProfile(actorId);
+    return this.db.catalogItem.create({ data: { ...dto, stylistId: employee.stylistId } });
+  }
+  private async persistOrder(stylistId: string, actorId: string, dto: CreateOrderDto, source: MeasurementSource) {
     const dueAt = dto.dueAt ? new Date(dto.dueAt) : undefined;
     if (dueAt && (!Number.isFinite(dueAt.getTime()) || dueAt.getTime() <= Date.now())) {
       throw new BadRequestException('La date et l’heure de livraison doivent être dans le futur.');
@@ -39,15 +55,15 @@ export class CommerceService {
       throw new BadRequestException('Le compte client ne correspond pas au téléphone indiqué.');
     }
     const data = {
-      ...dto, dueAt, stylistId: stylist.id, clientId: client?.id ?? null,
+      ...dto, dueAt, stylistId, clientId: client?.id ?? null,
       clientName: dto.clientName.trim(), clientPhone: phone, description: dto.description.trim(), notes: dto.notes?.trim(),
     };
     if (!dto.measurements || !Object.keys(dto.measurements).length) return this.db.order.create({ data });
     return this.db.$transaction(async tx => {
       const order = await tx.order.create({ data });
       await tx.measurement.create({ data: {
-        stylistId: stylist.id, clientId: client?.id ?? null, clientName: data.clientName,
-        clientPhone: phone, source: MeasurementSource.stylist, validatedAt: new Date(), validatedById: actorId, modelName: data.description, values: dto.measurements!, notes: `Commande : ${data.description}`,
+        stylistId, clientId: client?.id ?? null, clientName: data.clientName,
+        clientPhone: phone, source, validatedAt: source === MeasurementSource.stylist ? new Date() : null, validatedById: source === MeasurementSource.stylist ? actorId : null, modelName: data.description, values: dto.measurements!, notes: `Commande : ${data.description}`,
       } });
       return order;
     });
@@ -87,7 +103,7 @@ export class CommerceService {
       return await this.db.$transaction(async tx => {
         const user = await tx.user.create({ data: {
           firstName: dto.firstName.trim(), lastName: dto.lastName.trim(), email: dto.email.toLowerCase(),
-          phone: dto.phone, passwordHash, role: UserRole.EMPLOYEE,
+          phone: dto.phone, passwordHash, role: UserRole.EMPLOYEE, mustChangePassword: true,
         } });
         return tx.personnel.create({
           data: { stylistId: stylist.id, userId: user.id, firstName: dto.firstName.trim(), lastName: dto.lastName.trim(), email: dto.email.toLowerCase(), phone: dto.phone, specialization: dto.specialization.trim() },

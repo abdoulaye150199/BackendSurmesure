@@ -42,6 +42,9 @@ export class StylistWorkspaceController {
 @ApiTags('employee workspace') @ApiBearerAuth() @Roles(AccountRole.EMPLOYEE) @UseGuards(JwtAuthGuard, RolesGuard) @Controller('employee')
 export class EmployeeWorkspaceController {
   constructor(private readonly service: CommerceService) {}
+  @Get('orders') orders(@CurrentUser() u: AuthUser, @Query() q: OrdersQueryDto) { return this.service.listEmployeeOrders(u.sub, q); }
+  @Post('orders') createOrder(@CurrentUser() u: AuthUser, @Body() dto: CreateOrderDto) { return this.service.createEmployeeOrder(u.sub, dto); }
+  @Post('catalog') createCatalog(@CurrentUser() u: AuthUser, @Body() dto: CreateCatalogItemDto) { return this.service.createEmployeeCatalog(u.sub, dto); }
   @Get('me') context(@CurrentUser() u: AuthUser) { return this.service.employeeContext(u.sub); }
   @Get('measurements') measurements(@CurrentUser() u: AuthUser, @Query() q: PageQueryDto) { return this.service.listEmployeeMeasurements(u.sub, q.limit, q.cursor); }
   @Post('measurements') createMeasurement(@CurrentUser() u: AuthUser, @Body() dto: CreateEmployeeMeasurementDto) { return this.service.createEmployeeMeasurement(u.sub, dto); }
