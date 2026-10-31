@@ -32,8 +32,6 @@ Render met les services gratuits en veille après 15 minutes sans trafic entrant
 
 Références : [Render Free](https://render.com/docs/free), [planifications GitHub Actions](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
 
-## Architecture
-
 ## Migrations sur Render / Neon
 
 Le démarrage exécute `scripts/migrate-deploy.cjs` avant de lancer l’API. Le script utilise `DIRECT_URL`, puis `DATABASE_URL_UNPOOLED` si elle existe, sinon `DATABASE_URL`. Pour Neon, il retire le suffixe `-pooler` du nom d’hôte pour les migrations uniquement. L’API conserve sa connexion poolée dans `DATABASE_URL`.
