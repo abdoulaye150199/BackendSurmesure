@@ -83,6 +83,13 @@ model Personnel {
   @@index([stylistId, active])
 }
 
+enum MeasurementSource {
+  stylist
+  client
+  employee
+  legacy
+}
+
 model Measurement {
   id String @id @default(uuid()) @db.Uuid
   stylistId String @db.Uuid
@@ -90,6 +97,9 @@ model Measurement {
   clientName String
   modelName String?
   modelType String?
+  source MeasurementSource @default(legacy)
+  validatedAt DateTime?
+  validatedById String? @db.Uuid
   clientPhone String
   values Json
   notes String @default("")

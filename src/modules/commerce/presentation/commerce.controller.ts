@@ -7,7 +7,7 @@ import { AccountRole } from '../../identity/domain/account-role';
 import { Roles } from '../../identity/presentation/roles.decorator';
 import { RolesGuard } from '../../identity/presentation/roles.guard';
 import { CommerceService } from '../application/commerce.service';
-import { CatalogLikeDto, AdminUserStatusDto, CreateAppointmentDto, CreateClientModelMeasurementDto, CreateCatalogItemDto, CreateEmployeeAccountDto, CreateEmployeeMeasurementDto, CreateMeasurementDto, CreateOrderDto, CreatePersonnelDto, EmployeeAccessDto, MeasurementsQueryDto, NotifyDto, OrdersQueryDto, SaveClientMeasurementDto, UpdateAppointmentStatusDto, UpdateCatalogItemDto, UpdateMeasurementDto, UpdateOrderDto, UpdatePersonnelDto, UpdateStylistProfileDto } from '../application/commerce.dto';
+import { CatalogLikeDto, AdminUserStatusDto, ValidateMeasurementDto, CreateAppointmentDto, CreateClientModelMeasurementDto, CreateCatalogItemDto, CreateEmployeeAccountDto, CreateEmployeeMeasurementDto, CreateMeasurementDto, CreateOrderDto, CreatePersonnelDto, EmployeeAccessDto, MeasurementsQueryDto, NotifyDto, OrdersQueryDto, SaveClientMeasurementDto, UpdateAppointmentStatusDto, UpdateCatalogItemDto, UpdateMeasurementDto, UpdateOrderDto, UpdatePersonnelDto, UpdateStylistProfileDto } from '../application/commerce.dto';
 
 @ApiTags('stylist workspace') @ApiBearerAuth() @Roles(AccountRole.STYLIST) @UseGuards(JwtAuthGuard, RolesGuard) @Controller()
 export class StylistWorkspaceController {
@@ -18,6 +18,7 @@ export class StylistWorkspaceController {
   @Patch('orders/:id') patchOrder(@Param('id') id: string, @CurrentUser() u: AuthUser, @Body() dto: UpdateOrderDto) { return this.service.updateOrder(id, u.sub, dto); }
   @Post('orders/:id/notify') notify(@Param('id') id: string, @CurrentUser() u: AuthUser, @Body() dto: NotifyDto) { return this.service.notifyOrder(id, u.sub, dto.message); }
   @Delete('orders/:id') deleteOrder(@Param('id') id: string, @CurrentUser() u: AuthUser) { return this.service.deleteOrder(id, u.sub); }
+  @Patch('measurements/:id/validate') validateMeasurement(@Param('id') id: string, @CurrentUser() u: AuthUser, @Body() dto: ValidateMeasurementDto) { return this.service.validateMeasurement(id, u.sub, dto); }
   @Get('stylist/:stylistId/measurements') measurements(@Param('stylistId') id: string, @CurrentUser() u: AuthUser, @Query() q: PageQueryDto) { return this.service.listMeasurements(id, u.sub, q.limit, q.cursor); }
   @Get('stylist/:stylistId/appointments') appointments(@Param('stylistId') id: string, @CurrentUser() u: AuthUser) { return this.service.stylistAppointments(id, u.sub); }
   @Patch('appointments/:id/status') updateAppointmentStatus(@Param('id') id: string, @CurrentUser() u: AuthUser, @Body() dto: UpdateAppointmentStatusDto) { return this.service.updateStylistAppointmentStatus(id, u.sub, dto.status); }

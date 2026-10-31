@@ -30,6 +30,10 @@ export class CreateEmployeeMeasurementDto {
   @IsObject() measurements!: Record<string, number>; @IsOptional() @IsString() notes = '';
 }
 export class UpdateMeasurementDto { @IsOptional() @IsObject() measurements?: Record<string, number>; @IsOptional() @IsString() notes?: string; }
+export class ValidateMeasurementDto {
+  @IsString() @MinLength(2) @MaxLength(120) modelName!: string;
+  @IsDateString() expectedUpdatedAt!: string;
+}
 export class SaveClientMeasurementDto {
   @IsOptional() @IsUUID() measurementId?: string;
   @IsUUID() stylistId!: string;

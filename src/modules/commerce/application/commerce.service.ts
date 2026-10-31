@@ -1,8 +1,8 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import * as argon2 from 'argon2';
-import { AppointmentStatus, OrderStatus, Prisma, UserRole } from '@prisma/client';
+import { AppointmentStatus, OrderStatus, MeasurementSource, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
-import { CreateAppointmentDto, CreateClientModelMeasurementDto, CreateCatalogItemDto, CreateEmployeeAccountDto, CreateEmployeeMeasurementDto, CreateMeasurementDto, CreateOrderDto, CreatePersonnelDto, OrdersQueryDto, SaveClientMeasurementDto, UpdateMeasurementDto, UpdateOrderDto, UpdatePersonnelDto, UpdateStylistProfileDto, UpdateCatalogItemDto } from './commerce.dto';
+import { ValidateMeasurementDto, CreateAppointmentDto, CreateClientModelMeasurementDto, CreateCatalogItemDto, CreateEmployeeAccountDto, CreateEmployeeMeasurementDto, CreateMeasurementDto, CreateOrderDto, CreatePersonnelDto, OrdersQueryDto, SaveClientMeasurementDto, UpdateMeasurementDto, UpdateOrderDto, UpdatePersonnelDto, UpdateStylistProfileDto, UpdateCatalogItemDto } from './commerce.dto';
 import { OrderAggregate } from '../domain/order.aggregate';
 
 @Injectable()
@@ -47,7 +47,7 @@ export class CommerceService {
       const order = await tx.order.create({ data });
       await tx.measurement.create({ data: {
         stylistId: stylist.id, clientId: client?.id ?? null, clientName: data.clientName,
-        clientPhone: phone, values: dto.measurements!, notes: `Commande : ${data.description}`,
+        clientPhone: phone, source: MeasurementSource.stylist, validatedAt: new Date(), validatedById: actorId, modelName: data.description, values: dto.measurements!, notes: `Commande : ${data.description}`,
       } });
       return order;
     });
@@ -61,8 +61,23 @@ export class CommerceService {
   async notifyOrder(id: string, actorId: string, message: string) { const order = await this.assertOrder(id, actorId); return { success: true, queued: true, recipient: order.clientPhone, message }; }
   private async assertOrder(id: string, actorId: string) { const o = await this.db.order.findUnique({ where: { id }, include: { stylist: true } }); if (!o) throw new NotFoundException('Commande introuvable'); if (o.stylist.userId !== actorId) throw new ForbiddenException(); return o; }
   async listMeasurements(routeId: string, actorId: string, limit: number, cursor?: string, query?: string) { const s = await this.stylistProfile(routeId, actorId); const rows = await this.db.measurement.findMany({ where: { stylistId: s.id, ...(query && { OR: [{ clientName: { contains: query, mode: 'insensitive' } }, { clientPhone: { contains: query } }] }) }, take: limit + 1, ...(cursor && { cursor: { id: cursor }, skip: 1 }), orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] }); return this.page(rows.map(({ values, ...m }) => ({ ...m, measurements: values })), limit); }
-  async createMeasurement(routeId: string, actorId: string, dto: CreateMeasurementDto) { const s = await this.stylistProfile(routeId, actorId); const { measurements, ...rest } = dto; const row = await this.db.measurement.create({ data: { ...rest, values: measurements, stylistId: s.id } }); return { ...row, measurements: row.values }; }
-  async updateMeasurement(id: string, actorId: string, dto: UpdateMeasurementDto) { const m = await this.db.measurement.findUnique({ where: { id }, include: { stylist: true } }); if (!m) throw new NotFoundException(); if (m.stylist.userId !== actorId) throw new ForbiddenException(); const { measurements, ...rest } = dto; const updated = await this.db.measurement.update({ where: { id }, data: { ...rest, values: measurements ?? undefined } }); const { values, ...result } = updated; return { ...result, measurements: values }; }
+  async createMeasurement(routeId: string, actorId: string, dto: CreateMeasurementDto) { this.validateMeasurementValues(dto.measurements); const s = await this.stylistProfile(routeId, actorId); const { measurements, ...rest } = dto; const row = await this.db.measurement.create({ data: { ...rest, values: measurements, stylistId: s.id, source: MeasurementSource.stylist, validatedAt: new Date(), validatedById: actorId } }); return { ...row, measurements: row.values }; }
+  async updateMeasurement(id: string, actorId: string, dto: UpdateMeasurementDto) { const m = await this.db.measurement.findUnique({ where: { id }, include: { stylist: true } }); if (!m) throw new NotFoundException(); if (m.stylist.userId !== actorId) throw new ForbiddenException(); if (dto.measurements) this.validateMeasurementValues(dto.measurements); const { measurements, ...rest } = dto; const updated = await this.db.measurement.update({ where: { id }, data: { ...rest, values: measurements ?? undefined, ...(measurements && (m.source === MeasurementSource.client ? { validatedAt: null, validatedById: null } : { source: MeasurementSource.stylist, validatedAt: new Date(), validatedById: actorId })) } }); const { values, ...result } = updated; return { ...result, measurements: values }; }
+  async validateMeasurement(id: string, actorId: string, dto: ValidateMeasurementDto) {
+    const record = await this.db.measurement.findUnique({ where: { id }, include: { stylist: true } });
+    if (!record) throw new NotFoundException('Fiche de mesures introuvable');
+    if (record.stylist.userId !== actorId) throw new ForbiddenException('Accès interdit à cette fiche');
+    const modelName = dto.modelName.trim();
+    if (modelName.length < 2) throw new BadRequestException('Précisez le modèle concerné par la validation.');
+    this.validateMeasurementValues(record.values as Record<string, number>);
+    const result = await this.db.measurement.updateMany({
+      where: { id, stylistId: record.stylistId, updatedAt: new Date(dto.expectedUpdatedAt) },
+      data: { modelName, validatedAt: new Date(), validatedById: actorId },
+    });
+    if (!result.count) throw new ConflictException('Ces mesures ont été modifiées. Actualisez la fiche avant de la valider.');
+    const { values, ...updated } = await this.db.measurement.findUniqueOrThrow({ where: { id } });
+    return { ...updated, measurements: values };
+  }
   async deleteMeasurement(id: string, actorId: string) { await this.updateMeasurement(id, actorId, {}); await this.db.measurement.delete({ where: { id } }); return { success: true }; }
   async listPersonnel(routeId: string, actorId: string) { const s = await this.stylistProfile(routeId, actorId); return this.db.personnel.findMany({ where: { stylistId: s.id }, include: { user: { select: { id: true, email: true, active: true } } }, orderBy: { hireDate: 'desc' } }); }
   async createEmployeeAccount(routeId: string, actorId: string, dto: CreateEmployeeAccountDto) {
@@ -128,7 +143,7 @@ export class CommerceService {
     const client = await this.db.user.findFirst({ where: { phone: dto.clientPhone, role: UserRole.CLIENT } });
     const row = await this.db.measurement.create({ data: {
       stylistId: employee.stylistId, clientId: client?.id ?? null, clientName: dto.clientName.trim(),
-      clientPhone: dto.clientPhone, values: dto.measurements, notes: dto.notes ?? '',
+      clientPhone: dto.clientPhone, source: MeasurementSource.employee, values: dto.measurements, notes: dto.notes ?? '',
     } });
     return { ...row, measurements: row.values };
   }
@@ -137,7 +152,7 @@ export class CommerceService {
     const measurement = await this.db.measurement.findFirst({ where: { id, stylistId: employee.stylistId } });
     if (!measurement) throw new NotFoundException('Fiche de mesures introuvable');
     if (dto.measurements) this.validateMeasurementValues(dto.measurements);
-    const updated = await this.db.measurement.update({ where: { id }, data: { values: dto.measurements ?? undefined, notes: dto.notes } });
+    const updated = await this.db.measurement.update({ where: { id }, data: { values: dto.measurements ?? undefined, notes: dto.notes, ...(dto.measurements && { source: MeasurementSource.employee, validatedAt: null, validatedById: null }) } });
     return { ...updated, measurements: updated.values };
   }
   private validateMeasurementValues(values: Record<string, number>) {
@@ -268,7 +283,7 @@ export class CommerceService {
     if (!client) throw new NotFoundException('Client introuvable');
     if (!stylist) throw new NotFoundException('Styliste introuvable');
     if (dto.measurementId && !current) throw new NotFoundException('Fiche de mesures introuvable');
-    const data = { values: dto.measurements, notes: dto.notes ?? current?.notes ?? '', clientName: `${client.firstName} ${client.lastName}`, clientPhone: client.phone };
+    const data = { source: MeasurementSource.client, validatedAt: null, validatedById: null, values: dto.measurements, notes: dto.notes ?? current?.notes ?? '', clientName: `${client.firstName} ${client.lastName}`, clientPhone: client.phone };
     const row = current
       ? await this.db.measurement.update({ where: { id: current.id }, data })
       : await this.db.measurement.create({ data: { ...data, clientId, stylistId: dto.stylistId } });
@@ -287,7 +302,7 @@ export class CommerceService {
     if (!stylist) throw new NotFoundException('Styliste introuvable');
     const { values, ...row } = await this.db.measurement.create({ data: {
       stylistId: stylist.id, clientId: client.id, clientName: `${client.firstName} ${client.lastName}`,
-      clientPhone: client.phone, modelName, modelType: dto.modelType?.trim(), values: dto.measurements, notes: dto.notes?.trim() ?? '',
+      source: MeasurementSource.client, clientPhone: client.phone, modelName, modelType: dto.modelType?.trim(), values: dto.measurements, notes: dto.notes?.trim() ?? '',
     } });
     return { ...row, measurements: values };
   }
