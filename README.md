@@ -34,6 +34,16 @@ Références : [Render Free](https://render.com/docs/free), [planifications GitH
 
 ## Architecture
 
+## Migrations sur Render / Neon
+
+Le démarrage exécute `scripts/migrate-deploy.cjs` avant de lancer l’API. Le script utilise `DIRECT_URL`, puis `DATABASE_URL_UNPOOLED` si elle existe, sinon `DATABASE_URL`. Pour Neon, il retire le suffixe `-pooler` du nom d’hôte pour les migrations uniquement. L’API conserve sa connexion poolée dans `DATABASE_URL`.
+
+En cas de délai dépassé sur le verrou de migration Prisma, le script réessaie au maximum trois fois, avec dix secondes entre les tentatives. Les autres erreurs arrêtent le démarrage immédiatement. Le verrou reste activé ; aucune migration n’est réinitialisée ni marquée comme résolue automatiquement.
+
+Si le verrou reste occupé, vérifiez qu’aucun autre déploiement ou processus de migration ne s’exécute en parallèle avant de relancer Render. Une connexion directe copiée depuis Neon peut être définie dans `DIRECT_URL` dans les variables d’environnement Render, sans modifier `DATABASE_URL`.
+
+## Architecture
+
 ```text
 src/modules/<contexte>/
   domain/          Entités, invariants et ports (sans framework)
