@@ -242,9 +242,19 @@ export class CommerceService {
     return this.page(rows, q.limit);
   }
   async clientMeasurements(clientId: string) {
+    await this.db.$executeRaw(Prisma.sql`
+      UPDATE "Measurement" AS measurements
+      SET "clientId" = client."id"
+      FROM "User" AS client
+      WHERE client."id" = ${clientId}::uuid
+        AND client."role" = 'CLIENT' AND client."active" = true
+        AND measurements."clientId" IS NULL
+        AND regexp_replace(measurements."clientPhone", '[[:space:]().-]', '', 'g')
+          = regexp_replace(client."phone", '[[:space:]().-]', '', 'g')
+    `);
     const rows = await this.db.measurement.findMany({
       where: { clientId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
     });
     return rows.map(({ values, ...row }) => ({ ...row, measurements: values }));
   }

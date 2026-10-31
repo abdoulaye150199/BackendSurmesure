@@ -1,6 +1,26 @@
 import { CommerceService } from '../src/modules/commerce/application/commerce.service';
 
 describe('client orders entered before signup', () => {
+  it('links stylist measurements by the account phone and returns the most recently updated records', async () => {
+    const db = {
+      $executeRaw: jest.fn().mockResolvedValue(1),
+      measurement: { findMany: jest.fn().mockResolvedValue([
+        { id: 'measure-1', clientId: 'client', stylistId: 'atelier', values: { poitrine: 92, taille: 74 }, updatedAt: new Date() },
+      ]) },
+    };
+    const service = new CommerceService(db as never);
+    const result = await service.clientMeasurements('client');
+    const query = db.$executeRaw.mock.calls[0][0];
+    expect(query.values).toEqual(['client']);
+    expect(query.text).toContain('UPDATE "Measurement"');
+    expect(query.text).toContain('measurements."clientId" IS NULL');
+    expect(query.text).toContain('client."role" = \'CLIENT\'');
+    expect(query.text).toContain('regexp_replace(measurements."clientPhone"');
+    expect(query.text).toContain('regexp_replace(client."phone"');
+    expect(db.measurement.findMany).toHaveBeenCalledWith({ where: { clientId: 'client' }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }] });
+    expect(result[0]).toMatchObject({ id: 'measure-1', measurements: { poitrine: 92, taille: 74 } });
+    expect(result[0]).not.toHaveProperty('values');
+  });
   it('links guest history using the authenticated account before reading orders', async () => {
     const order = {
       id: 'order-before-signup', clientId: 'new-client',
