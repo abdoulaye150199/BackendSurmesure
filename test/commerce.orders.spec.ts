@@ -33,6 +33,31 @@ describe('stylist order creation', () => {
     expect(await service.createOrder('atelier', 'stylist', input)).toMatchObject({ clientId: 'client' });
   });
 
+  it('saves order measurements and the atelier measurement record in the same transaction', async () => {
+    const { db, service } = setup();
+    const tx = { order: db.order, measurement: { create: jest.fn().mockResolvedValue({}) } };
+    Object.assign(db, { $transaction: jest.fn(async callback => callback(tx)) });
+    await service.createOrder('atelier', 'stylist', { ...input, measurements: { poitrine: 92 }, durationDays: 7 });
+    expect(db.order.create).toHaveBeenCalledWith({ data: expect.objectContaining({ measurements: { poitrine: 92 }, durationDays: 7 }) });
+    expect(tx.measurement.create).toHaveBeenCalledWith({ data: expect.objectContaining({ stylistId: 'atelier', values: { poitrine: 92 }, clientId: null }) });
+  });
+
+  it('rejects invalid measurement values before writing an order', async () => {
+    const { db, service } = setup();
+    await expect(service.createOrder('atelier', 'stylist', { ...input, measurements: { poitrine: -2 } })).rejects.toBeInstanceOf(BadRequestException);
+    expect(db.order.create).not.toHaveBeenCalled();
+  });
+
+  it('persists the delivery instant and refuses a date in the past', async () => {
+    const { db, service } = setup();
+    const dueAt = '2099-12-20T15:30:00.000Z';
+    await service.createOrder('atelier', 'stylist', { ...input, dueAt });
+    expect(db.order.create).toHaveBeenCalledWith({ data: expect.objectContaining({ dueAt: new Date(dueAt) }) });
+    db.order.create.mockClear();
+    await expect(service.createOrder('atelier', 'stylist', { ...input, dueAt: '2000-01-01T12:00:00Z' })).rejects.toBeInstanceOf(BadRequestException);
+    expect(db.order.create).not.toHaveBeenCalled();
+  });
+
   it('refuses to create an order in another stylist’s atelier', async () => {
     const { db, service } = setup();
     await expect(service.createOrder('atelier', 'intruder', input)).rejects.toBeInstanceOf(ForbiddenException);

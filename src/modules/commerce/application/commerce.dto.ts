@@ -1,10 +1,13 @@
 import { AppointmentStatus, OrderStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsArray, IsBoolean, IsDateString, IsEmail, IsEnum, IsNumber, IsObject, IsOptional, IsPhoneNumber, IsString, IsUUID, MaxLength, Min, MinLength } from 'class-validator';
+import { IsArray, IsBoolean, IsDateString, IsEmail, IsEnum, IsInt, IsNumber, IsObject, IsOptional, IsPhoneNumber, IsString, IsUUID, Max, MaxLength, Min, MinLength } from 'class-validator';
 import { PageQueryDto } from '../../../shared/application/page.dto';
 export class OrdersQueryDto extends PageQueryDto { @IsOptional() @IsEnum(OrderStatus) status?: OrderStatus; }
 export class MeasurementsQueryDto extends PageQueryDto { @IsOptional() @IsString() q?: string; }
 export class CreateOrderDto {
+  @IsOptional() @IsObject() measurements?: Record<string, number>;
+  @IsOptional() @IsInt() @Min(1) @Max(3650) durationDays?: number;
+  @IsOptional() @IsDateString() dueAt?: string;
   @IsOptional() @IsUUID() clientId?: string; @IsString() @MinLength(2) clientName!: string; @IsPhoneNumber() clientPhone!: string;
   @IsString() @MinLength(2) description!: string; @Type(() => Number) @IsNumber() @Min(0) totalPrice!: number; @IsOptional() @IsString() notes?: string;
 }

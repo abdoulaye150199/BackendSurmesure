@@ -20,6 +20,13 @@ export class CommerceService {
   }
   async createOrder(routeId: string, actorId: string, dto: CreateOrderDto) {
     const stylist = await this.stylistProfile(routeId, actorId);
+    const dueAt = dto.dueAt ? new Date(dto.dueAt) : undefined;
+    if (dueAt && (!Number.isFinite(dueAt.getTime()) || dueAt.getTime() <= Date.now())) {
+      throw new BadRequestException('La date et l’heure de livraison doivent être dans le futur.');
+    }
+    if (dto.measurements && (Object.keys(dto.measurements).length > 50 || Object.entries(dto.measurements).some(([key, value]) => !key.trim() || key.length > 80 || typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value > 300))) {
+      throw new BadRequestException('Les mesures doivent être comprises entre 0 et 300 cm (zéro exclu).');
+    }
     const phone = dto.clientPhone.replace(/[\s().-]/g, '');
     const client = dto.clientId
       ? await this.db.user.findFirst({ where: { id: dto.clientId, role: UserRole.CLIENT }, select: { id: true, phone: true } })
@@ -31,10 +38,19 @@ export class CommerceService {
     if (dto.clientId && (!client || client.phone.replace(/[\s().-]/g, '') !== phone)) {
       throw new BadRequestException('Le compte client ne correspond pas au téléphone indiqué.');
     }
-    return this.db.order.create({ data: {
-      ...dto, stylistId: stylist.id, clientId: client?.id ?? null,
+    const data = {
+      ...dto, dueAt, stylistId: stylist.id, clientId: client?.id ?? null,
       clientName: dto.clientName.trim(), clientPhone: phone, description: dto.description.trim(), notes: dto.notes?.trim(),
-    } });
+    };
+    if (!dto.measurements || !Object.keys(dto.measurements).length) return this.db.order.create({ data });
+    return this.db.$transaction(async tx => {
+      const order = await tx.order.create({ data });
+      await tx.measurement.create({ data: {
+        stylistId: stylist.id, clientId: client?.id ?? null, clientName: data.clientName,
+        clientPhone: phone, values: dto.measurements!, notes: `Commande : ${data.description}`,
+      } });
+      return order;
+    });
   }
   async updateOrder(id: string, actorId: string, dto: UpdateOrderDto) {
     const current = await this.assertOrder(id, actorId);

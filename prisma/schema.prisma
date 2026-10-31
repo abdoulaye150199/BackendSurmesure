@@ -110,6 +110,9 @@ model Order {
   totalPrice Decimal @db.Decimal(12,2)
   currency String @default("XOF")
   notes String?
+  measurements Json @default("{}")
+  durationDays Int?
+  dueAt DateTime?
   completedAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
