@@ -220,6 +220,18 @@ export class CommerceService {
     });
   }
   async clientOrders(clientId: string, q: OrdersQueryDto) {
+    // Attach orders entered before signup using the phone on the authenticated account.
+    // Never reassign an order already linked to another client.
+    await this.db.$executeRaw(Prisma.sql`
+      UPDATE "Order" AS orders
+      SET "clientId" = client."id"
+      FROM "User" AS client
+      WHERE client."id" = ${clientId}::uuid
+        AND client."role" = 'CLIENT' AND client."active" = true
+        AND orders."clientId" IS NULL
+        AND regexp_replace(orders."clientPhone", '[[:space:]().-]', '', 'g')
+          = regexp_replace(client."phone", '[[:space:]().-]', '', 'g')
+    `);
     const rows = await this.db.order.findMany({
       where: { clientId, status: q.status },
       take: q.limit + 1,
