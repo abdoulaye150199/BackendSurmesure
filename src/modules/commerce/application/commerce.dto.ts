@@ -5,7 +5,7 @@ import { PageQueryDto } from '../../../shared/application/page.dto';
 export class OrdersQueryDto extends PageQueryDto { @IsOptional() @IsEnum(OrderStatus) status?: OrderStatus; }
 export class MeasurementsQueryDto extends PageQueryDto { @IsOptional() @IsString() q?: string; }
 export class CreateOrderDto {
-  @IsUUID() clientId!: string; @IsString() clientName!: string; @IsPhoneNumber() clientPhone!: string;
+  @IsOptional() @IsUUID() clientId?: string; @IsString() @MinLength(2) clientName!: string; @IsPhoneNumber() clientPhone!: string;
   @IsString() @MinLength(2) description!: string; @Type(() => Number) @IsNumber() @Min(0) totalPrice!: number; @IsOptional() @IsString() notes?: string;
 }
 export class UpdateOrderDto {

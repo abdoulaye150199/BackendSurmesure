@@ -102,7 +102,7 @@ model Measurement {
 model Order {
   id String @id @default(uuid()) @db.Uuid
   stylistId String @db.Uuid
-  clientId String @db.Uuid
+  clientId String? @db.Uuid
   clientName String
   clientPhone String
   description String
@@ -114,7 +114,7 @@ model Order {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   stylist StylistProfile @relation(fields: [stylistId], references: [id])
-  client User @relation("ClientOrders", fields: [clientId], references: [id])
+  client User? @relation("ClientOrders", fields: [clientId], references: [id])
   @@index([stylistId, status, createdAt(sort: Desc)])
   @@index([clientId, createdAt(sort: Desc)])
 }

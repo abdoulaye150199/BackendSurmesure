@@ -18,7 +18,24 @@ export class CommerceService {
   async listOrders(routeId: string, actorId: string, q: OrdersQueryDto) {
     const s = await this.stylistProfile(routeId, actorId); const rows = await this.db.order.findMany({ where: { stylistId: s.id, status: q.status }, take: q.limit + 1, ...(q.cursor && { cursor: { id: q.cursor }, skip: 1 }), orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] }); return this.page(rows, q.limit);
   }
-  async createOrder(routeId: string, actorId: string, dto: CreateOrderDto) { const s = await this.stylistProfile(routeId, actorId); return this.db.order.create({ data: { ...dto, stylistId: s.id } }); }
+  async createOrder(routeId: string, actorId: string, dto: CreateOrderDto) {
+    const stylist = await this.stylistProfile(routeId, actorId);
+    const phone = dto.clientPhone.replace(/[\s().-]/g, '');
+    const client = dto.clientId
+      ? await this.db.user.findFirst({ where: { id: dto.clientId, role: UserRole.CLIENT }, select: { id: true, phone: true } })
+      : (await this.db.$queryRaw<Array<{ id: string; phone: string }>>(Prisma.sql`
+          SELECT "id", "phone" FROM "User"
+          WHERE "role" = 'CLIENT' AND regexp_replace("phone", '[[:space:]().-]', '', 'g') = ${phone}
+          ORDER BY "createdAt", "id" LIMIT 1
+        `))[0];
+    if (dto.clientId && (!client || client.phone.replace(/[\s().-]/g, '') !== phone)) {
+      throw new BadRequestException('Le compte client ne correspond pas au téléphone indiqué.');
+    }
+    return this.db.order.create({ data: {
+      ...dto, stylistId: stylist.id, clientId: client?.id ?? null,
+      clientName: dto.clientName.trim(), clientPhone: phone, description: dto.description.trim(), notes: dto.notes?.trim(),
+    } });
+  }
   async updateOrder(id: string, actorId: string, dto: UpdateOrderDto) {
     const current = await this.assertOrder(id, actorId);
     if (dto.status) { try { new OrderAggregate(id, current.status).transitionTo(dto.status); } catch (error) { throw new BadRequestException(error instanceof Error ? error.message : 'Statut invalide'); } }
