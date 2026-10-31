@@ -31,9 +31,17 @@ export class CreateEmployeeMeasurementDto {
 }
 export class UpdateMeasurementDto { @IsOptional() @IsObject() measurements?: Record<string, number>; @IsOptional() @IsString() notes?: string; }
 export class SaveClientMeasurementDto {
+  @IsOptional() @IsUUID() measurementId?: string;
   @IsUUID() stylistId!: string;
   @IsObject() measurements!: Record<string, number>;
   @IsOptional() @IsString() notes?: string;
+}
+export class CreateClientModelMeasurementDto {
+  @IsOptional() @IsString() @MaxLength(120) modelType?: string;
+  @IsUUID() stylistId!: string;
+  @IsString() @MinLength(2) @MaxLength(120) modelName!: string;
+  @IsObject() measurements!: Record<string, number>;
+  @IsOptional() @IsString() @MaxLength(1000) notes?: string;
 }
 export class AdminUserStatusDto { @IsBoolean() active!: boolean; }
 export class CreatePersonnelDto {

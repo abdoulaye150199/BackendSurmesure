@@ -7,7 +7,7 @@ import { AccountRole } from '../../identity/domain/account-role';
 import { Roles } from '../../identity/presentation/roles.decorator';
 import { RolesGuard } from '../../identity/presentation/roles.guard';
 import { CommerceService } from '../application/commerce.service';
-import { CatalogLikeDto, AdminUserStatusDto, CreateAppointmentDto, CreateCatalogItemDto, CreateEmployeeAccountDto, CreateEmployeeMeasurementDto, CreateMeasurementDto, CreateOrderDto, CreatePersonnelDto, EmployeeAccessDto, MeasurementsQueryDto, NotifyDto, OrdersQueryDto, SaveClientMeasurementDto, UpdateAppointmentStatusDto, UpdateCatalogItemDto, UpdateMeasurementDto, UpdateOrderDto, UpdatePersonnelDto, UpdateStylistProfileDto } from '../application/commerce.dto';
+import { CatalogLikeDto, AdminUserStatusDto, CreateAppointmentDto, CreateClientModelMeasurementDto, CreateCatalogItemDto, CreateEmployeeAccountDto, CreateEmployeeMeasurementDto, CreateMeasurementDto, CreateOrderDto, CreatePersonnelDto, EmployeeAccessDto, MeasurementsQueryDto, NotifyDto, OrdersQueryDto, SaveClientMeasurementDto, UpdateAppointmentStatusDto, UpdateCatalogItemDto, UpdateMeasurementDto, UpdateOrderDto, UpdatePersonnelDto, UpdateStylistProfileDto } from '../application/commerce.dto';
 
 @ApiTags('stylist workspace') @ApiBearerAuth() @Roles(AccountRole.STYLIST) @UseGuards(JwtAuthGuard, RolesGuard) @Controller()
 export class StylistWorkspaceController {
@@ -66,6 +66,7 @@ export class ClientWorkspaceController {
   @Get('measurements') measurements(@CurrentUser() user: AuthUser) {
     return this.service.clientMeasurements(user.sub);
   }
+  @Post('client/measurements') createModelMeasurements(@CurrentUser() user: AuthUser, @Body() dto: CreateClientModelMeasurementDto) { return this.service.createClientModelMeasurements(user.sub, dto); }
   @Put('client/measurements') saveMeasurements(@CurrentUser() user: AuthUser, @Body() dto: SaveClientMeasurementDto) {
     return this.service.saveClientMeasurements(user.sub, dto);
   }

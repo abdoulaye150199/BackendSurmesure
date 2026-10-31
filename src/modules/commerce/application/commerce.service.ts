@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import * as argon2 from 'argon2';
 import { AppointmentStatus, OrderStatus, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
-import { CreateAppointmentDto, CreateCatalogItemDto, CreateEmployeeAccountDto, CreateEmployeeMeasurementDto, CreateMeasurementDto, CreateOrderDto, CreatePersonnelDto, OrdersQueryDto, SaveClientMeasurementDto, UpdateMeasurementDto, UpdateOrderDto, UpdatePersonnelDto, UpdateStylistProfileDto, UpdateCatalogItemDto } from './commerce.dto';
+import { CreateAppointmentDto, CreateClientModelMeasurementDto, CreateCatalogItemDto, CreateEmployeeAccountDto, CreateEmployeeMeasurementDto, CreateMeasurementDto, CreateOrderDto, CreatePersonnelDto, OrdersQueryDto, SaveClientMeasurementDto, UpdateMeasurementDto, UpdateOrderDto, UpdatePersonnelDto, UpdateStylistProfileDto, UpdateCatalogItemDto } from './commerce.dto';
 import { OrderAggregate } from '../domain/order.aggregate';
 
 @Injectable()
@@ -259,18 +259,37 @@ export class CommerceService {
     return rows.map(({ values, ...row }) => ({ ...row, measurements: values }));
   }
   async saveClientMeasurements(clientId: string, dto: SaveClientMeasurementDto) {
+    this.validateMeasurementValues(dto.measurements);
     const [client, stylist, current] = await Promise.all([
       this.db.user.findUnique({ where: { id: clientId } }),
       this.db.stylistProfile.findUnique({ where: { id: dto.stylistId } }),
-      this.db.measurement.findFirst({ where: { clientId, stylistId: dto.stylistId }, orderBy: { createdAt: 'desc' } }),
+      this.db.measurement.findFirst({ where: { clientId, stylistId: dto.stylistId, ...(dto.measurementId ? { id: dto.measurementId } : { modelName: null }) }, orderBy: { updatedAt: 'desc' } }),
     ]);
     if (!client) throw new NotFoundException('Client introuvable');
     if (!stylist) throw new NotFoundException('Styliste introuvable');
-    const data = { values: dto.measurements, notes: dto.notes ?? '', clientName: `${client.firstName} ${client.lastName}`, clientPhone: client.phone };
+    if (dto.measurementId && !current) throw new NotFoundException('Fiche de mesures introuvable');
+    const data = { values: dto.measurements, notes: dto.notes ?? current?.notes ?? '', clientName: `${client.firstName} ${client.lastName}`, clientPhone: client.phone };
     const row = current
       ? await this.db.measurement.update({ where: { id: current.id }, data })
       : await this.db.measurement.create({ data: { ...data, clientId, stylistId: dto.stylistId } });
     return { ...row, measurements: row.values };
+  }
+
+  async createClientModelMeasurements(clientId: string, dto: CreateClientModelMeasurementDto) {
+    this.validateMeasurementValues(dto.measurements);
+    const modelName = dto.modelName.trim();
+    if (modelName.length < 2) throw new BadRequestException('Précisez le nom du modèle.');
+    const [client, stylist] = await Promise.all([
+      this.db.user.findFirst({ where: { id: clientId, role: UserRole.CLIENT, active: true } }),
+      this.db.stylistProfile.findUnique({ where: { id: dto.stylistId } }),
+    ]);
+    if (!client) throw new NotFoundException('Client introuvable');
+    if (!stylist) throw new NotFoundException('Styliste introuvable');
+    const { values, ...row } = await this.db.measurement.create({ data: {
+      stylistId: stylist.id, clientId: client.id, clientName: `${client.firstName} ${client.lastName}`,
+      clientPhone: client.phone, modelName, modelType: dto.modelType?.trim(), values: dto.measurements, notes: dto.notes?.trim() ?? '',
+    } });
+    return { ...row, measurements: values };
   }
 
   async adminDashboard() {
