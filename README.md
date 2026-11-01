@@ -83,7 +83,7 @@ Le workflow `.github/workflows/quality.yml` exécute ces contrôles avec Postgre
 
 ## Déploiement Render / Neon
 
-- Déclarer `NODE_ENV=production`, `DATABASE_URL`, deux secrets JWT dédiés et `CORS_ORIGINS` avec les origines exactes, dont `https://surmesure-front.vercel.app`.
+- Déclarer `NODE_ENV=production`, `DATABASE_URL`, deux secrets JWT dédiés et `CORS_ORIGINS` avec les origines exactes, dont `https://surmesure-front.vercel.app` et `https://surmesure.liggeypro.com`.
 - Sur Render, régler `TRUST_PROXY_HOPS` au nombre réel de proxies de confiance (généralement `1`). Le défaut `0` convient à l’accès local direct.
 - `/docs` est désactivé en production sauf si `SWAGGER_ENABLED=true`.
 - Appliquer **toutes** les migrations avant d’utiliser ce backend. Elles ajoutent les versions de sessions, les confirmations de rattachement et les notifications. Elles ne créent aucun compte de démonstration.
