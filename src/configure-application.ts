@@ -16,6 +16,9 @@ export function configureApplication(app: NestExpressApplication): void {
       .map((value) => value.trim())
       .filter(Boolean),
   );
+  // Keep the primary production frontend available even if its Render
+  // environment variable has not yet been updated.
+  allowedOrigins.add('https://surmesure.liggeypro.com');
   app.enableCors({
     origin(origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) {
       const local =
