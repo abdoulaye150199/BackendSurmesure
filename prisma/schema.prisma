@@ -38,6 +38,7 @@ model User {
   phone String @unique
   passwordHash String
   refreshTokenHash String?
+  sessionVersion Int @default(0)
   profileImage String @default("")
   active Boolean @default(true)
   mustChangePassword Boolean @default(false)
@@ -48,6 +49,7 @@ model User {
   clientOrders Order[] @relation("ClientOrders")
   clientMeasurements Measurement[] @relation("ClientMeasurements")
   appointments Appointment[] @relation("ClientAppointments")
+  notifications ClientNotification[]
   @@index([role, active])
 }
 
@@ -95,6 +97,7 @@ model Measurement {
   id String @id @default(uuid()) @db.Uuid
   stylistId String @db.Uuid
   clientId String? @db.Uuid
+  clientConfirmedAt DateTime?
   clientName String
   modelName String?
   modelType String?
@@ -116,6 +119,7 @@ model Order {
   id String @id @default(uuid()) @db.Uuid
   stylistId String @db.Uuid
   clientId String? @db.Uuid
+  clientConfirmedAt DateTime?
   clientName String
   clientPhone String
   description String
@@ -131,6 +135,7 @@ model Order {
   updatedAt DateTime @updatedAt
   stylist StylistProfile @relation(fields: [stylistId], references: [id])
   client User? @relation("ClientOrders", fields: [clientId], references: [id])
+  notifications ClientNotification[]
   @@index([stylistId, status, createdAt(sort: Desc)])
   @@index([clientId, createdAt(sort: Desc)])
 }
@@ -172,6 +177,18 @@ model Appointment {
   createdAt DateTime @default(now())
   client User @relation("ClientAppointments", fields: [clientId], references: [id])
   stylist StylistProfile @relation("StylistAppointments", fields: [stylistId], references: [id])
-  @@unique([stylistId, startsAt])
+  // Active-slot uniqueness is enforced by the partial index in SQL migrations.
   @@index([clientId, startsAt])
+}
+
+model ClientNotification {
+  id String @id @default(uuid()) @db.Uuid
+  clientId String @db.Uuid
+  orderId String? @db.Uuid
+  message String
+  createdAt DateTime @default(now())
+  readAt DateTime?
+  client User @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  @@index([clientId, createdAt(sort: Desc), id(sort: Desc)])
 }

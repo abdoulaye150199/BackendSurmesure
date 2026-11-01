@@ -1,59 +1,68 @@
-import { CommerceService } from '../src/modules/commerce/application/commerce.service';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { createCommerceService } from './commerce.fixture';
 
-describe('client orders entered before signup', () => {
-  it('links stylist measurements by the account phone and returns the most recently updated records', async () => {
+describe('history linking requires owner confirmation', () => {
+  it('does not write or claim records when a client reads orders or measurements', async () => {
     const db = {
-      $executeRaw: jest.fn().mockResolvedValue(1),
-      measurement: { findMany: jest.fn().mockResolvedValue([
-        { id: 'measure-1', clientId: 'client', stylistId: 'atelier', values: { poitrine: 92, taille: 74 }, updatedAt: new Date() },
-      ]) },
+      $executeRaw: jest.fn(),
+      order: { findMany: jest.fn().mockResolvedValue([{ id: 'order', clientId: 'client' }]) },
+      measurement: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 'sheet', clientId: 'client', values: { taille: 74 } }]),
+      },
     };
-    const service = new CommerceService(db as never);
-    const result = await service.clientMeasurements('client');
-    const query = db.$executeRaw.mock.calls[0][0];
-    expect(query.values).toEqual(['client']);
-    expect(query.text).toContain('UPDATE "Measurement"');
-    expect(query.text).toContain('measurements."clientId" IS NULL');
-    expect(query.text).toContain('client."role" = \'CLIENT\'');
-    expect(query.text).toContain('regexp_replace(measurements."clientPhone"');
-    expect(query.text).toContain('regexp_replace(client."phone"');
-    expect(db.measurement.findMany).toHaveBeenCalledWith({ where: { clientId: 'client' }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }] });
-    expect(result[0]).toMatchObject({ id: 'measure-1', measurements: { poitrine: 92, taille: 74 } });
-    expect(result[0]).not.toHaveProperty('values');
+    const service = createCommerceService(db as never);
+    expect((await service.clientOrders('client', { limit: 20 })).data[0].id).toBe('order');
+    expect((await service.clientMeasurements('client'))[0].measurements).toEqual({ taille: 74 });
+    expect(db.$executeRaw).not.toHaveBeenCalled();
+    expect(db.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { clientId: 'client', clientConfirmedAt: { not: null }, status: undefined },
+      }),
+    );
   });
-  it('links guest history using the authenticated account before reading orders', async () => {
-    const order = {
-      id: 'order-before-signup', clientId: 'new-client',
-      createdAt: new Date('2026-10-01T12:00:00Z'),
-      dueAt: new Date('2026-11-01T12:00:00Z'), measurements: { poitrine: 92 },
-    };
-    const db = {
+  const setup = () => {
+    const tx = {
+      user: { findFirst: jest.fn().mockResolvedValue({ phone: '+221770000001' }) },
       $executeRaw: jest.fn().mockResolvedValue(1),
-      order: { findMany: jest.fn().mockResolvedValue([order]) },
     };
-    const service = new CommerceService(db as never);
-    const result = await service.clientOrders('new-client', { limit: 20 });
-
-    const query = db.$executeRaw.mock.calls[0][0];
-    expect(query.values).toEqual(['new-client']);
-    expect(query.text).toContain('orders."clientId" IS NULL');
-    expect(query.text).toContain('client."role" = \'CLIENT\'');
-    expect(query.text).toContain('client."active" = true');
-    expect(query.text).toContain('regexp_replace(orders."clientPhone"');
-    expect(query.text).toContain('regexp_replace(client."phone"');
-    expect(db.order.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { clientId: 'new-client', status: undefined } }));
-    expect(db.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(db.order.findMany.mock.invocationCallOrder[0]);
-    expect(result.data).toEqual([order]);
-    expect(result.data[0].dueAt).toEqual(order.dueAt);
-    expect(result.data[0].createdAt).toEqual(order.createdAt);
-  });
-
-  it('continues to return existing linked orders on subsequent visits', async () => {
     const db = {
-      $executeRaw: jest.fn().mockResolvedValue(0),
-      order: { findMany: jest.fn().mockResolvedValue([{ id: 'existing', clientId: 'client' }]) },
+      stylistProfile: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'atelier', userId: 'owner' }),
+      },
+      $transaction: jest.fn(async (callback) => callback(tx)),
+      $queryRaw: jest.fn().mockResolvedValue([]),
     };
-    const service = new CommerceService(db as never);
-    await expect(service.clientOrders('client', { limit: 20 })).resolves.toMatchObject({ data: [{ id: 'existing', clientId: 'client' }] });
+    return { db, tx, service: createCommerceService(db as never) };
+  };
+  it('links only unclaimed history in the confirming stylist atelier', async () => {
+    const { service, tx } = setup();
+    expect(
+      await service.linkClientHistory('atelier', 'owner', 'client', '+221 77 000 00 01'),
+    ).toEqual({ clientId: 'client', orders: 1, measurements: 1 });
+    for (const [query] of tx.$executeRaw.mock.calls) {
+      expect(query.text).toContain('"stylistId" =');
+      expect(query.text).toContain('"clientId" IS NULL');
+      expect(query.values).toEqual(['client', 'atelier', 'client', '+221770000001']);
+    }
+  });
+  it('rejects owner and phone mismatches before assigning any record', async () => {
+    const { service, tx } = setup();
+    await expect(
+      service.linkClientHistory('atelier', 'stranger', 'client', '+221770000001'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.linkClientHistory('atelier', 'owner', 'client', '+221780000002'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(tx.$executeRaw).not.toHaveBeenCalled();
+  });
+  it('constrains candidate lookup to a matching history record owned by the stylist', async () => {
+    const { service, db } = setup();
+    await service.clientLinkCandidates('atelier', 'owner', '+221770000001');
+    const query = db.$queryRaw.mock.calls[0][0];
+    expect(query.text).toContain('EXISTS');
+    expect(query.values).toContain('atelier');
+    expect(query.text).toContain('"clientConfirmedAt" IS NULL');
   });
 });

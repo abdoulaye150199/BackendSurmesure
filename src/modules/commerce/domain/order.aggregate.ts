@@ -1,4 +1,4 @@
-import { OrderStatus } from '@prisma/client';
+export type OrderStatus = 'pending' | 'inProgress' | 'completed' | 'delivered' | 'cancelled';
 import { DomainError } from '../../../shared/domain/domain-error';
 
 const transitions: Record<OrderStatus, readonly OrderStatus[]> = {
@@ -11,11 +11,23 @@ const transitions: Record<OrderStatus, readonly OrderStatus[]> = {
 
 /** Aggregate métier pur : protège le cycle de vie d'une commande. */
 export class OrderAggregate {
-  constructor(readonly id: string, private currentStatus: OrderStatus) {}
-  get status() { return this.currentStatus; }
+  constructor(
+    readonly id: string,
+    private currentStatus: OrderStatus,
+  ) {}
+  get status() {
+    return this.currentStatus;
+  }
   transitionTo(next: OrderStatus) {
-    if (next === this.currentStatus) return;
-    if (!transitions[this.currentStatus].includes(next)) throw new DomainError(`Transition ${this.currentStatus} -> ${next} interdite`, 'ORDER_STATUS_TRANSITION_INVALID');
+    if (next === this.currentStatus) {
+      return;
+    }
+    if (!transitions[this.currentStatus].includes(next)) {
+      throw new DomainError(
+        `Transition ${this.currentStatus} -> ${next} interdite`,
+        'ORDER_STATUS_TRANSITION_INVALID',
+      );
+    }
     this.currentStatus = next;
   }
 }

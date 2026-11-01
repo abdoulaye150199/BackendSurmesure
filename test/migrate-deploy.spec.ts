@@ -1,11 +1,15 @@
-const { migrationDatabaseUrl, isAdvisoryLockTimeout } = require('../scripts/migrate-deploy.cjs') as {
-  migrationDatabaseUrl(env: Record<string, string>): string;
-  isAdvisoryLockTimeout(output: string): boolean;
-};
+const { migrationDatabaseUrl, isAdvisoryLockTimeout } =
+  require('../scripts/migrate-deploy.cjs') as {
+    migrationDatabaseUrl(env: Record<string, string>): string;
+    isAdvisoryLockTimeout(output: string): boolean;
+  };
 
 describe('deployment migration connection', () => {
   it('uses a direct Neon connection without changing the application URL', () => {
-    const env = { DATABASE_URL: 'postgresql://user:password@ep-example-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&pgbouncer=true' };
+    const env = {
+      DATABASE_URL:
+        'postgresql://user:password@ep-example-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&pgbouncer=true',
+    };
     const original = env.DATABASE_URL;
     const selected = new URL(migrationDatabaseUrl(env));
     expect(selected.hostname).toBe('ep-example.c-2.us-east-2.aws.neon.tech');
@@ -31,11 +35,15 @@ describe('deployment migration connection', () => {
     const local = 'postgresql://user:password@localhost:5434/surmesure?schema=public';
     expect(migrationDatabaseUrl({ DATABASE_URL: local })).toBe(local);
     expect(() => migrationDatabaseUrl({})).toThrow('doit être configurée');
-    expect(() => migrationDatabaseUrl({ DATABASE_URL: 'secret-invalid-value' })).toThrow('URL de migration PostgreSQL invalide');
+    expect(() => migrationDatabaseUrl({ DATABASE_URL: 'secret-invalid-value' })).toThrow(
+      'URL de migration PostgreSQL invalide',
+    );
   });
 
   it('retries advisory lock contention but not migration SQL failures', () => {
-    expect(isAdvisoryLockTimeout('P1002: Timed out trying to acquire a postgres advisory lock')).toBe(true);
+    expect(
+      isAdvisoryLockTimeout('P1002: Timed out trying to acquire a postgres advisory lock'),
+    ).toBe(true);
     expect(isAdvisoryLockTimeout('P3009 failed migration')).toBe(false);
     expect(isAdvisoryLockTimeout('P1002: database connection timeout')).toBe(false);
   });

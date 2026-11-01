@@ -1,6 +1,6 @@
 import { ConflictException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { AuthService } from '../src/modules/identity/application/auth.service';
+import { AccountConflictError } from '../src/modules/identity/domain/user.repository';
 
 describe('account registration', () => {
   it('stores only the password hash and never forwards the plaintext password to Prisma', async () => {
@@ -15,9 +15,14 @@ describe('account registration', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       })),
-      setRefreshTokenHash: jest.fn().mockResolvedValue(undefined),
+      saveRefreshToken: jest.fn().mockResolvedValue(true),
     };
-    const jwt = { signAsync: jest.fn().mockResolvedValueOnce('access-token').mockResolvedValueOnce('refresh-token') };
+    const jwt = {
+      signAsync: jest
+        .fn()
+        .mockResolvedValueOnce('access-token')
+        .mockResolvedValueOnce('refresh-token'),
+    };
     const config = {
       getOrThrow: jest.fn().mockReturnValue('test-secret'),
       get: jest.fn((_key: string, fallback: string) => fallback),
@@ -37,24 +42,25 @@ describe('account registration', () => {
     expect(storedAccount).not.toHaveProperty('password');
     expect(storedAccount.passwordHash).not.toBe(password);
     expect(storedAccount.role).toBe('CLIENT');
-    expect(users.setRefreshTokenHash).toHaveBeenCalledWith('user-1', expect.any(String));
+    expect(users.saveRefreshToken).toHaveBeenCalledWith('user-1', expect.any(String), 0, undefined);
   });
 
   it('returns a conflict when the email or phone is already registered', async () => {
-    const duplicate = new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
-      code: 'P2002',
-      clientVersion: 'test',
-      meta: { target: ['phone'] },
-    });
+    const duplicate = new AccountConflictError();
     const users = {
       findByEmail: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockRejectedValue(duplicate),
     };
     const service = new AuthService(users as never, {} as never, {} as never);
 
-    await expect(service.register({
-      firstName: 'Fatou', lastName: 'Ndiaye', email: 'fatou@example.com',
-      phone: '+221770000000', password: 'MotDePasse!2026',
-    })).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      service.register({
+        firstName: 'Fatou',
+        lastName: 'Ndiaye',
+        email: 'fatou@example.com',
+        phone: '+221770000000',
+        password: 'MotDePasse!2026',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });

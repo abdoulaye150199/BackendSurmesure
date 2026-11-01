@@ -1,36 +1,62 @@
-import { ApiHideProperty, ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsPhoneNumber, IsString, MinLength, MaxLength } from 'class-validator';
-import { AccountRole } from '../domain/account-role';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsPhoneNumber, IsString, MaxLength, MinLength } from 'class-validator';
+import { TextField } from '../../../shared/validation/fields';
 export class RegisterDto {
   @ApiProperty({ example: 'Fatou', minLength: 2 })
-  @IsString() @MinLength(2) firstName!: string;
+  @TextField(2, 80)
+  firstName!: string;
   @ApiProperty({ example: 'Ndiaye', minLength: 2 })
-  @IsString() @MinLength(2) lastName!: string;
+  @TextField(2, 80)
+  lastName!: string;
   @ApiProperty({ example: 'fatou@example.com', format: 'email' })
-  @IsEmail() email!: string;
-  @ApiProperty({ example: '+221 77 000 00 00', description: 'Numéro international avec indicatif pays.' })
-  @IsPhoneNumber() phone!: string;
+  @TextField(3, 254)
+  @IsEmail()
+  email!: string;
+  @ApiProperty({
+    example: '+221 77 000 00 00',
+    description: 'Numéro international avec indicatif pays.',
+  })
+  @IsPhoneNumber()
+  phone!: string;
   @ApiProperty({ minLength: 10, format: 'password', writeOnly: true })
-  @IsString() @MinLength(10) password!: string;
+  @IsString()
+  @MinLength(10)
+  @MaxLength(128)
+  password!: string;
 }
 export class StylistRegisterDto {
   @ApiProperty({ example: 'Awa', minLength: 2 })
-  @IsString() @MinLength(2) firstName!: string;
+  @TextField(2, 80)
+  firstName!: string;
   @ApiProperty({ example: 'Diop', minLength: 2 })
-  @IsString() @MinLength(2) lastName!: string;
+  @TextField(2, 80)
+  lastName!: string;
   @ApiProperty({ example: 'Atelier Awa', minLength: 2 })
-  @IsString() @MinLength(2) businessName!: string;
+  @TextField(2, 120)
+  businessName!: string;
   @ApiProperty({ example: 'awa@example.com', format: 'email' })
-  @IsEmail() email!: string;
-  @ApiProperty({ example: '+221 77 000 00 00', description: 'Numéro international avec indicatif pays.' })
-  @IsPhoneNumber() phone!: string;
+  @TextField(3, 254)
+  @IsEmail()
+  email!: string;
+  @ApiProperty({
+    example: '+221 77 000 00 00',
+    description: 'Numéro international avec indicatif pays.',
+  })
+  @IsPhoneNumber()
+  phone!: string;
   @ApiProperty({ minLength: 10, format: 'password', writeOnly: true })
-  @IsString() @MinLength(10) password!: string;
-  @ApiHideProperty()
-  @IsEnum(AccountRole) readonly role = AccountRole.STYLIST;
+  @IsString()
+  @MinLength(10)
+  @MaxLength(128)
+  password!: string;
 }
-export class LoginDto { @IsEmail() email!: string; @IsString() @MinLength(1) password!: string; }
-export class RefreshDto { @IsString() refreshToken!: string; }
+export class LoginDto {
+  @TextField(3, 254) @IsEmail() email!: string;
+  @IsString() @MinLength(1) @MaxLength(128) password!: string;
+}
+export class RefreshDto {
+  @IsString() @MaxLength(4096) refreshToken!: string;
+}
 
 export class ChangeEmployeePasswordDto {
   @IsString() @MinLength(1) @MaxLength(128) currentPassword!: string;

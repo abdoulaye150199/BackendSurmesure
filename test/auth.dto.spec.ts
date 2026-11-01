@@ -15,7 +15,7 @@ describe('stylist registration validation', () => {
 
     const errors = await validate(dto, { whitelist: true, forbidNonWhitelisted: true });
     expect(errors).toEqual([]);
-    expect(dto.role).toBe('STYLIST');
+    expect(dto).not.toHaveProperty('role');
   });
 
   it('accepts the client form values shown in the report', async () => {

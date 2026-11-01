@@ -6,5 +6,15 @@ import { PrismaUserRepository } from './infrastructure/prisma-user.repository';
 import { AuthController } from './presentation/auth.controller';
 import { JwtAuthGuard } from './presentation/jwt-auth.guard';
 import { RolesGuard } from './presentation/roles.guard';
-@Module({ imports: [JwtModule.register({})], controllers: [AuthController], providers: [AuthService, JwtAuthGuard, RolesGuard, { provide: USER_REPOSITORY, useClass: PrismaUserRepository }], exports: [JwtAuthGuard, RolesGuard, JwtModule] })
+@Module({
+  imports: [JwtModule.register({})],
+  controllers: [AuthController],
+  providers: [
+    AuthService,
+    JwtAuthGuard,
+    RolesGuard,
+    { provide: USER_REPOSITORY, useClass: PrismaUserRepository },
+  ],
+  exports: [JwtAuthGuard, RolesGuard, JwtModule, USER_REPOSITORY],
+})
 export class AuthModule {}
