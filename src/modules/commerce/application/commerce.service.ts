@@ -224,7 +224,26 @@ export class CommerceService {
     });
   }
   listStylists(limit: number, cursor?: string) { return this.db.stylistProfile.findMany({ take: limit, ...(cursor && { cursor: { id: cursor }, skip: 1 }), orderBy: [{ rating: 'desc' }, { id: 'asc' }], include: { user: { select: { firstName: true, lastName: true, profileImage: true } } } }); }
-  async createAppointment(clientId: string, dto: CreateAppointmentDto) { return this.db.appointment.create({ data: { ...dto, clientId, startsAt: new Date(dto.startsAt) } }).catch((e: unknown) => { if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') throw new ForbiddenException('Ce créneau est déjà réservé'); throw e; }); }
+  async createAppointment(clientId: string, dto: CreateAppointmentDto) {
+    const startsAt = new Date(dto.startsAt);
+    if (!Number.isFinite(startsAt.getTime()) || startsAt.getTime() <= Date.now()) throw new BadRequestException('Choisissez une date et une heure dans le futur.');
+    if (dto.service.trim().length < 2) throw new BadRequestException('Précisez le motif du rendez-vous.');
+    const [client, stylist] = await Promise.all([
+      this.db.user.findFirst({ where: { id: clientId, role: UserRole.CLIENT, active: true }, select: { id: true } }),
+      this.db.stylistProfile.findFirst({ where: { id: dto.stylistId, user: { is: { active: true } } }, select: { id: true } }),
+    ]);
+    if (!client) throw new ForbiddenException('Un compte client actif est nécessaire.');
+    if (!stylist) throw new NotFoundException('Cet atelier n’est pas disponible.');
+    try {
+      return await this.db.appointment.create({
+        data: { stylistId: stylist.id, clientId, service: dto.service.trim(), notes: dto.notes?.trim(), startsAt, status: AppointmentStatus.pending },
+        include: { stylist: { select: { businessName: true, user: { select: { firstName: true, lastName: true, profileImage: true } } } } },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') throw new ConflictException('Ce créneau est déjà réservé. Choisissez un autre horaire.');
+      throw error;
+    }
+  }
   async clientAppointments(clientId: string) {
     return this.db.appointment.findMany({
       where: { clientId },

@@ -77,4 +77,4 @@ export class UpdateStylistProfileDto {
   @IsOptional() @IsString() @MaxLength(100_000) profileImage?: string;
 }
 export class UpdateAppointmentStatusDto { @IsEnum(AppointmentStatus) status!: AppointmentStatus; }
-export class CreateAppointmentDto { @IsUUID() stylistId!: string; @IsString() service!: string; @IsDateString() startsAt!: string; @IsOptional() @IsString() notes?: string; }
+export class CreateAppointmentDto { @IsUUID() stylistId!: string; @IsString() @MinLength(2) @MaxLength(160) service!: string; @IsDateString() startsAt!: string; @IsOptional() @IsString() @MaxLength(1000) notes?: string; }
