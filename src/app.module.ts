@@ -30,6 +30,8 @@ import { AuthModule } from './modules/identity/auth.module';
         },
       }),
     }),
+    // The default storage is process-local. Production multi-instance deployments
+    // must configure a shared ThrottlerStorage (for example Redis).
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     PrismaModule,
     AuthModule,

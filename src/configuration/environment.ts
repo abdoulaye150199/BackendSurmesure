@@ -18,6 +18,8 @@ export const envSchema = z
       .string()
       .url()
       .refine((value) => ['postgres:', 'postgresql:'].includes(new URL(value).protocol)),
+    DATABASE_POOL_SIZE: z.coerce.number().int().min(1).max(100).default(10),
+    DATABASE_POOL_TIMEOUT_SECONDS: z.coerce.number().int().min(1).max(120).default(10),
     JWT_ACCESS_SECRET: z.string().min(32),
     JWT_REFRESH_SECRET: z.string().min(32),
     JWT_ACCESS_TTL: duration

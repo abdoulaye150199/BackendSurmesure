@@ -88,6 +88,18 @@ Le workflow `.github/workflows/quality.yml` exécute ces contrôles avec Postgre
 - `/docs` est désactivé en production sauf si `SWAGGER_ENABLED=true`.
 - Appliquer **toutes** les migrations avant d’utiliser ce backend. Elles ajoutent les versions de sessions, les confirmations de rattachement et les notifications. Elles ne créent aucun compte de démonstration.
 
+## Préparer la montée en charge
+
+Le nombre de comptes inscrits ne dimensionne pas le serveur : il faut préciser le nombre de requêtes par seconde, la proportion de requêtes authentifiées et le temps de réponse attendu pendant un pic. « 10 000 utilisateurs simultanés » ne constitue pas à lui seul une capacité garantie.
+
+- Le backend est sans état applicatif entre requêtes et peut tourner derrière un répartiteur de charge sur plusieurs instances. Chaque instance doit utiliser la même base PostgreSQL et les mêmes secrets JWT. Les migrations doivent être appliquées une fois avant d’ajouter les instances.
+- Configure `DATABASE_POOL_SIZE` et `DATABASE_POOL_TIMEOUT_SECONDS` sur chaque instance. Le total des connexions Prisma vaut approximativement `nombre d’instances × DATABASE_POOL_SIZE`; garde-le sous la limite PostgreSQL en réservant des connexions aux migrations et à l’administration. Utilise l’URL poolée de Neon en runtime et une capacité de base adaptée.
+- Le limiteur NestJS actuel garde ses compteurs en mémoire du processus. En multi-instance, une même adresse peut donc recevoir le quota de chaque instance. Pour un quota cohérent, configure un stockage partagé Redis pour `ThrottlerModule` avant le déploiement multi-instance. Le proxy doit aussi être réglé via `TRUST_PROXY_HOPS` afin que l’IP cliente soit correctement identifiée.
+- Les endpoints d’authentification font du hachage Argon2 ; dimensionne le CPU avec les pics de connexion, séparément du trafic de navigation.
+- Avant de promettre 10 000 utilisateurs, exécute un test de charge progressif contre un environnement de préproduction représentatif : parcours anonymes et authentifiés, pics de connexion, lecture et écriture. Observe p95/p99, taux d’erreur, CPU/mémoire des instances, connexions et latence PostgreSQL, puis augmente les instances et le pool par étapes.
+
+Cette configuration permet d’ajuster le pool sans modifier le code. Elle n’active pas Redis et ne garantit aucune capacité sans test mesuré sur le plan d’hébergement et la base de production.
+
 Le démarrage exécute `scripts/migrate-deploy.cjs`. Il utilise `DIRECT_URL`, puis `DATABASE_URL_UNPOOLED`, sinon `DATABASE_URL`. Sur Neon, il retire le suffixe `-pooler` pour les migrations uniquement. Le runtime garde sa connexion poolée. Les échecs de verrou consultatif sont réessayés au maximum trois fois ; les autres erreurs arrêtent le démarrage. Aucune migration n’est réinitialisée ou marquée comme résolue automatiquement.
 
 Le script `npm run admin:configure` configure exclusivement le super administrateur depuis `SEED_ADMIN_EMAIL` et `SEED_ADMIN_PASSWORD`. Il refuse de promouvoir un compte client existant et refuse de choisir arbitrairement entre plusieurs administrateurs. Les vraies valeurs restent dans les variables privées. `npm run prisma:seed` sert aux démonstrations, pas aux données de production.

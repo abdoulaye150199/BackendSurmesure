@@ -16,7 +16,9 @@ services:
     build: .
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://surmesure:surmesure@postgres:5432/surmesure?schema=public&connection_limit=20
+      DATABASE_URL: postgresql://surmesure:surmesure@postgres:5432/surmesure?schema=public
+      DATABASE_POOL_SIZE: 10
+      DATABASE_POOL_TIMEOUT_SECONDS: 10
     ports: ['3000:3000']
     depends_on:
       postgres: { condition: service_healthy }
