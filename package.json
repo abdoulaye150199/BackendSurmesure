@@ -11,18 +11,10 @@
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "test": "jest --runInBand",
     "test:e2e": "jest --config test/jest-e2e.json --runInBand",
-    "prisma:generate": "npm run prisma:generate:postgresql",
-    "prisma:generate:postgresql": "node scripts/prisma.cjs postgresql generate",
-    "prisma:generate:mysql": "node scripts/prisma.cjs mysql generate",
-    "prisma:migrate": "npm run prisma:migrate:postgresql",
-    "prisma:migrate:postgresql": "node scripts/prisma.cjs postgresql migrate dev",
-    "prisma:migrate:mysql": "node scripts/prisma.cjs mysql migrate dev",
-    "prisma:deploy": "npm run prisma:deploy:postgresql",
-    "prisma:deploy:postgresql": "node scripts/migrate-deploy.cjs postgresql",
-    "prisma:deploy:mysql": "node scripts/migrate-deploy.cjs mysql",
-    "prisma:validate:postgresql": "node scripts/prisma.cjs postgresql validate",
-    "prisma:validate:mysql": "node scripts/prisma.cjs mysql validate",
-    "prisma:seed": "node scripts/prisma.cjs seed",
+    "prisma:generate": "prisma generate --schema prisma/schema.prisma",
+    "prisma:migrate": "prisma migrate dev --schema prisma/schema.prisma",
+    "prisma:deploy": "node scripts/migrate-deploy.cjs",
+    "prisma:seed": "tsx prisma/seed.ts",
     "admin:configure": "node scripts/configure-admin.cjs",
     "typecheck": "tsc --noEmit --incremental false",
     "format": "prettier --write .",
@@ -31,7 +23,7 @@
     "check": "npm run lint && npm run format:check && npm run typecheck && npm run build && npm run test:quality"
   },
   "prisma": {
-    "schema": "prisma/postgresql/schema.prisma"
+    "schema": "prisma/schema.prisma"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

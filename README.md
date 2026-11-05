@@ -112,76 +112,43 @@ Le workflow `render-ping.yml` appelle l’endpoint de liveness toutes les 15 min
 - [Filtres d’exception NestJS](https://docs.nestjs.com/exception-filters)
 - [Tests NestJS et HTTP](https://docs.nestjs.com/fundamentals/testing)
 
-## Moteur de base : PostgreSQL/Neon ou MySQL/LWS
+## Moteur de base : PostgreSQL/Neon
 
-Le choix se fait par environnement via `DATABASE_PROVIDER=postgresql` ou `DATABASE_PROVIDER=mysql`. Les schémas et historiques sont indépendants : `prisma/postgresql/` conserve l’historique Neon d’origine, inchangé, et `prisma/mysql/` contient son propre historique. Le script de génération écrit `generated/client-provider.json`; l’API refuse de démarrer et les outils de migration/seed/admin refusent d’agir si le moteur demandé ne correspond pas au client généré. Ne partagez pas le dossier `generated/` entre deux builds ciblés différents.
-
-### PostgreSQL existant / Neon
+### PostgreSQL / Neon
 
 ```env
-DATABASE_PROVIDER=postgresql
 DATABASE_URL=postgresql://...pooler.../database?sslmode=require
 DIRECT_URL=postgresql://...direct.../database?sslmode=require
 ```
 
 ```bash
-npm run prisma:generate:postgresql
-npm run prisma:deploy:postgresql
+npm run prisma:generate
+npm run prisma:deploy
 npm run build
 npm start
 ```
 
-Les alias historiques `prisma:generate`, `prisma:migrate`, `prisma:deploy` gardent PostgreSQL comme moteur par défaut. Les migrations de production restent une action séparée du démarrage. `DIRECT_URL`, puis `DATABASE_URL_UNPOOLED`, restent prioritaires pour les migrations; le traitement du pooler Neon est conservé.
+Les migrations de production restent une action séparée du démarrage. `DIRECT_URL`, puis `DATABASE_URL_UNPOOLED`, restent prioritaires pour les migrations; le traitement du pooler Neon est conservé.
 
-### MySQL sur LWS
+### Déploiement Passenger LWS
 
-```env
-NODE_ENV=production
-DATABASE_PROVIDER=mysql
-DATABASE_URL=mysql://UTILISATEUR:MOT_DE_PASSE@HOTE_LWS:3306/NOM_BASE
-PORT=3000
-```
+Le backend utilise PostgreSQL/Neon aussi sur LWS. Dans cPanel, sélectionner Node.js 22, définir le dossier de l’application à la racine `backend SurMesure`, puis indiquer le point d’entrée `dist/src/main.js` (ou la commande `npm start`). Ajouter les dépendances depuis le `package-lock.json` avec `npm ci --omit=dev` après l’installation de Node 22. Définir les variables côté panneau Passenger : `NODE_ENV=production`, `DATABASE_URL` (URL Neon poolée), `DIRECT_URL` (URL Neon directe), `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGINS`, `PORT` si LWS le demande. Ne pas téléverser le `.env` local.
 
-```bash
-npm run prisma:generate:mysql
-npm run prisma:deploy:mysql
-npm run build
-npm run start:passenger
-```
-
-Utilisez l’URL et le nom de base fournis par LWS. Le compte SQL doit avoir les droits de création/modification des objets nécessaires aux migrations. N’exécutez la migration MySQL que sur une base vide créée pour cette installation ou une base déjà reconnue comme compatible avec cet historique ; `migrate deploy` n’efface pas les tables, mais il ne convertit pas une base PostgreSQL existante. La migration initiale crée des tables avec des identifiants UUID stockés en `VARCHAR(191)`, JSON MySQL pour les collections et objets, ENUM natifs pour les statuts, décimaux précis pour les prix, et clés étrangères/index équivalents.
-
-### Déploiement Passenger LWS avec Node.js 22
-
-Le script de build local ne contacte aucune base :
+Compiler localement depuis le dossier backend avec Node.js 22 :
 
 ```bash
 npm ci
-npm run prisma:generate:mysql
+npm run prisma:generate
 npm run build
 ```
 
-Sur LWS, sélectionner Node.js 22, déposer le code compilé (`dist/`) avec `package.json`, `package-lock.json`, `prisma/mysql/`, `scripts/`, `Procfile` et le script de déploiement. Configurer les variables d’environnement dans le panneau LWS, avec `DATABASE_PROVIDER=mysql`, l’URL MySQL, les deux secrets JWT distincts d’au moins 32 caractères, `NODE_ENV=production`, `PORT` selon Passenger et les origines CORS. Définir l’application Passenger sur le répertoire du backend et le démarrage `npm run start:passenger` (`Procfile` équivalent). Puis, une fois les dépendances installées sur le serveur, générer le client pour MySQL et appliquer les migrations explicitement :
+Déployer `dist/`, `node_modules/` (ou installer les dépendances sur LWS), `prisma/schema.prisma`, `prisma/migrations/`, `scripts/migrate-deploy.cjs`, `package.json`, `package-lock.json` et `Procfile`. Régler la commande Passenger à `npm run start:passenger` ou au point d’entrée `dist/src/main.js`. Si les dépendances sont installées sur le serveur, exécuter `npm ci --omit=dev` puis `npx prisma generate`. Appliquer les migrations séparément avec `npm run prisma:deploy`; le démarrage Passenger ne doit pas lancer de migration. Après chaque modification des variables Passenger, redémarrer l’application depuis cPanel.
 
-```bash
-npm ci --omit=dev
-npm run prisma:generate:mysql
-node scripts/migrate-deploy.cjs mysql
-```
-
-Le script `deploy-lws.sh` automatise ces trois dernières commandes. Le démarrage Passenger exécute seulement `dist/src/main.js`, jamais les migrations automatiquement. Toute modification ultérieure du backend doit être recompilée localement avec Node 22 puis redéployée.
-
-### Différences MySQL à connaître
-
-- MySQL ne possède pas l’équivalent direct de `String[]` Prisma : `specialties` et `availableColors` sont du JSON côté MySQL, et restent des tableaux de chaînes dans les DTO et réponses applicatives. Ne pas filtrer ces tableaux avec des opérations SQL propres à PostgreSQL.
-- Les UUID PostgreSQL deviennent des chaînes `VARCHAR(191)` qui gardent le format UUID généré par Prisma. Les clés étrangères et l’intégrité référentielle sont conservées.
-- Le créneau unique PostgreSQL est un index partiel qui ignore les rendez-vous annulés. MySQL l’émule par une colonne générée `activeSlot` égale à l’heure du créneau pour les états actifs, puis NULL pour `cancelled`, avec une clé unique (styliste, créneau). Cela requiert MySQL 8.0.13 ou ultérieur et les colonnes générées/indexées ; confirmer cette compatibilité avec la version du serveur LWS. Les règles métier et le contrôle HTTP 409 restent les mêmes.
-- MySQL n’accepte pas `::uuid` ni `regexp_replace` avec les mêmes arguments ; le service de rattachement client utilise une variante MySQL (`REGEXP_REPLACE`, sans cast UUID) et garde la requête PostgreSQL existante sur Neon.
-- Prisma/MySQL stocke les horodatages en `DATETIME(3)` et les montants en `DECIMAL`, comme le niveau de précision attendu par l’application. Configurez le fuseau horaire de l’hébergement de façon cohérente entre l’API et la base.
+L’écran Passenger de la capture est une page générique : il ne donne pas la cause. Dans cPanel, ouvrir le journal d’erreurs Passenger / `stderr.log` et le journal d’erreurs du domaine juste après un redémarrage, puis rechercher les premières lignes `Error`, `Cannot find module` ou `P1001`. Vérifier dans cet ordre que le chemin d’application pointe sur ce dossier, que le point d’entrée compilé `dist/src/main.js` existe, que la version Node est 22, que les dépendances et le client Prisma sont installés, que `DATABASE_URL` est bien au format PostgreSQL Neon, que l’IP du serveur LWS est autorisée sur Neon et que les secrets requis existent. L’URL de la capture utilise HTTP (« Non sécurisé ») ; activer le certificat SSL/HTTPS LWS une fois que Passenger répond.
 
 ### Seed et super administrateur
 
-Avec les variables de connexion du moteur choisi et le client correspondant généré :
+Avec les variables PostgreSQL configurées :
 
 ```bash
 npm run prisma:seed
@@ -190,20 +157,14 @@ npm run admin:configure
 
 Le seed de démonstration n’est pas destiné à une base contenant des données métier. `admin:configure` garde ses protections existantes et agit uniquement sur le compte administrateur indiqué.
 
-### Passer de Neon à MySQL
-
-Le changement de `DATABASE_PROVIDER` n’est pas une migration de données. Ne pointez jamais le client MySQL vers Neon et ne lancez jamais le seed sur une base de production pendant un transfert. Pour migrer, faites une sauvegarde indépendante de Neon et créez une base MySQL séparée. Il faut convertir explicitement les enums, UUID en chaînes, tableaux PostgreSQL en JSON, et les timestamps/décimaux, importer avec vérification des comptes, rôles, relations, commandes, mensurations, rendez-vous, notifications et comptages, puis faire les tests de recette avant de basculer les clients. Gardez Neon intact comme source de retour arrière. Aucun transfert distant n’a été exécuté dans ce dépôt.
-
 ### Vérifications locales
 
 ```bash
-npm run prisma:validate:postgresql
-npm run prisma:validate:mysql
-npm run prisma:generate:postgresql
-npm run prisma:generate:mysql
+npx prisma validate
+npm run prisma:generate
 npm run typecheck
 npm run build
 npm test
 ```
 
-Les tests unitaires et le build ne nécessitent pas les bases ; les tests e2e nécessitent une base jetable locale portant le suffixe `_test`. Leur setup actuel vérifie spécifiquement PostgreSQL et ne constitue pas un test d’intégration MySQL.
+Les tests unitaires et le build ne nécessitent pas les bases ; les tests e2e nécessitent une base jetable locale portant le suffixe `_test`.

@@ -1,6 +1,6 @@
 const { migrationDatabaseUrl, isAdvisoryLockTimeout } =
   require('../scripts/migrate-deploy.cjs') as {
-    migrationDatabaseUrl(env: Record<string, string>, provider?: string): string;
+    migrationDatabaseUrl(env: Record<string, string>): string;
     isAdvisoryLockTimeout(output: string): boolean;
   };
 
@@ -48,11 +48,4 @@ describe('deployment migration connection', () => {
     expect(isAdvisoryLockTimeout('P1002: database connection timeout')).toBe(false);
   });
 
-  it('accepts MySQL URLs without applying PostgreSQL pooler rewriting', () => {
-    const url = 'mysql://user:password@mysql.example:3306/surmesure';
-    expect(migrationDatabaseUrl({ DATABASE_URL: url }, 'mysql')).toBe(url);
-    expect(() => migrationDatabaseUrl({ DATABASE_URL: 'postgresql://localhost/db' }, 'mysql')).toThrow(
-      'ne correspond pas au moteur mysql',
-    );
-  });
 });
