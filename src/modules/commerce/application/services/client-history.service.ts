@@ -15,10 +15,28 @@ export class ClientHistoryService {
     const stylist = await this.access.stylistProfile(routeId, actorId);
     const phone = canonicalPhone(phoneInput);
     // Matching names are disclosed only for a phone already present in this atelier's history.
+    if (process.env.DATABASE_PROVIDER === 'mysql') {
+      return this.db.$queryRaw<
+        Array<{ id: string; firstName: string; lastName: string; phone: string }>
+      >(Prisma.sql`
+        SELECT client.id, client.firstName, client.lastName, client.phone
+        FROM \`User\` client
+        WHERE client.role = 'CLIENT' AND client.active = true
+          AND REGEXP_REPLACE(client.phone, '[[:space:]().-]', '') = ${phone}
+          AND (EXISTS (
+            SELECT 1 FROM \`Order\` orders WHERE orders.stylistId = ${stylist.id} AND orders.clientConfirmedAt IS NULL
+            AND REGEXP_REPLACE(orders.clientPhone, '[[:space:]().-]', '') = ${phone}
+          ) OR EXISTS (
+            SELECT 1 FROM Measurement measures WHERE measures.stylistId = ${stylist.id} AND measures.clientConfirmedAt IS NULL
+            AND REGEXP_REPLACE(measures.clientPhone, '[[:space:]().-]', '') = ${phone}
+          ))
+        ORDER BY client.createdAt, client.id LIMIT 5
+      `);
+    }
     return this.db.$queryRaw<
       Array<{ id: string; firstName: string; lastName: string; phone: string }>
     >(Prisma.sql`
-      SELECT client."id", client."firstName", client."lastName", client."phone"
+        SELECT client."id", client."firstName", client."lastName", client."phone"
       FROM "User" client
       WHERE client."role" = 'CLIENT' AND client."active" = true
         AND regexp_replace(client."phone", '[[:space:]().-]', '', 'g') = ${phone}
@@ -50,12 +68,24 @@ export class ClientHistoryService {
             'Le téléphone ne correspond pas au compte client confirmé.',
           );
         }
-        const orders = await transaction.$executeRaw(Prisma.sql`
+        const orders = process.env.DATABASE_PROVIDER === 'mysql'
+          ? await transaction.$executeRaw(Prisma.sql`
+        UPDATE \`Order\` SET clientId = ${clientId}, clientConfirmedAt = CURRENT_TIMESTAMP(3)
+        WHERE stylistId = ${stylist.id} AND clientConfirmedAt IS NULL AND (clientId IS NULL OR clientId = ${clientId})
+          AND REGEXP_REPLACE(clientPhone, '[[:space:]().-]', '') = ${phone}
+      `)
+          : await transaction.$executeRaw(Prisma.sql`
         UPDATE "Order" SET "clientId" = ${clientId}::uuid, "clientConfirmedAt" = CURRENT_TIMESTAMP
         WHERE "stylistId" = ${stylist.id}::uuid AND "clientConfirmedAt" IS NULL AND ("clientId" IS NULL OR "clientId" = ${clientId}::uuid)
           AND regexp_replace("clientPhone", '[[:space:]().-]', '', 'g') = ${phone}
       `);
-        const measurements = await transaction.$executeRaw(Prisma.sql`
+        const measurements = process.env.DATABASE_PROVIDER === 'mysql'
+          ? await transaction.$executeRaw(Prisma.sql`
+        UPDATE Measurement SET clientId = ${clientId}, clientConfirmedAt = CURRENT_TIMESTAMP(3)
+        WHERE stylistId = ${stylist.id} AND clientConfirmedAt IS NULL AND (clientId IS NULL OR clientId = ${clientId})
+          AND REGEXP_REPLACE(clientPhone, '[[:space:]().-]', '') = ${phone}
+      `)
+          : await transaction.$executeRaw(Prisma.sql`
         UPDATE "Measurement" SET "clientId" = ${clientId}::uuid, "clientConfirmedAt" = CURRENT_TIMESTAMP
         WHERE "stylistId" = ${stylist.id}::uuid AND "clientConfirmedAt" IS NULL AND ("clientId" IS NULL OR "clientId" = ${clientId}::uuid)
           AND regexp_replace("clientPhone", '[[:space:]().-]', '', 'g') = ${phone}

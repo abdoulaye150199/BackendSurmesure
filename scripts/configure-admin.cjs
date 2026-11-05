@@ -53,7 +53,12 @@ module.exports = { configureAdmin };
 if (require.main === module) {
   const envPath = join(__dirname, '..', '.env');
   if (existsSync(envPath)) process.loadEnvFile(envPath);
-  const { PrismaClient } = require('@prisma/client');
+  const provider = process.env.DATABASE_PROVIDER || 'postgresql';
+  const metadataPath = join(__dirname, '..', 'generated', 'client-provider.json');
+  if (!existsSync(metadataPath) || require(metadataPath).provider !== provider) {
+    throw new Error(`Client Prisma incompatible avec DATABASE_PROVIDER=${provider}.`);
+  }
+  const { PrismaClient } = require(join(__dirname, '..', 'generated', `client-${provider}`));
   const argon2 = require('argon2');
   const db = new PrismaClient();
   configureAdmin(db, (password) => argon2.hash(password))

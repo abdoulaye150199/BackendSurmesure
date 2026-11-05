@@ -12,12 +12,10 @@ const duration = z.string().refine((value) => {
 
 export const envSchema = z
   .object({
+    DATABASE_PROVIDER: z.enum(['postgresql', 'mysql']).default('postgresql'),
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
-    DATABASE_URL: z
-      .string()
-      .url()
-      .refine((value) => ['postgres:', 'postgresql:'].includes(new URL(value).protocol)),
+    DATABASE_URL: z.string().url(),
     DATABASE_POOL_SIZE: z.coerce.number().int().min(1).max(100).default(10),
     DATABASE_POOL_TIMEOUT_SECONDS: z.coerce.number().int().min(1).max(120).default(10),
     JWT_ACCESS_SECRET: z.string().min(32),
@@ -50,6 +48,13 @@ export const envSchema = z
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
   })
   .superRefine((env, context) => {
+    const protocol = new URL(env.DATABASE_URL).protocol;
+    const validProtocol = env.DATABASE_PROVIDER === 'mysql'
+      ? protocol === 'mysql:'
+      : ['postgres:', 'postgresql:'].includes(protocol);
+    if (!validProtocol) {
+      context.addIssue({ code: 'custom', path: ['DATABASE_URL'], message: 'DATABASE_URL ne correspond pas à DATABASE_PROVIDER.' });
+    }
     if (env.JWT_ACCESS_SECRET === env.JWT_REFRESH_SECRET) {
       context.addIssue({
         code: 'custom',
