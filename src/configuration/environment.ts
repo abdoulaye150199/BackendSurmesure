@@ -13,6 +13,10 @@ const duration = z.string().refine((value) => {
 export const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    GOOGLE_CLIENT_ID: z
+      .string()
+      .regex(/^[a-zA-Z0-9._-]+\.apps\.googleusercontent\.com$/)
+      .optional(),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
     DATABASE_URL: z
       .string()

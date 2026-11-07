@@ -8,6 +8,7 @@ export interface AccountRecord {
   email: string;
   phone: string;
   passwordHash: string;
+  googleSubject?: string | null;
   refreshTokenHash: string | null;
   profileImage: string;
   active: boolean;

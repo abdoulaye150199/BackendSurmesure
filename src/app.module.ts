@@ -24,6 +24,7 @@ import { AuthModule } from './modules/identity/auth.module';
             'req.body.currentPassword',
             'req.body.newPassword',
             'req.body.refreshToken',
+            'req.body.credential',
             'res.headers["set-cookie"]',
           ],
           genReqId: (request) => createRequestId(request.headers['x-request-id']),

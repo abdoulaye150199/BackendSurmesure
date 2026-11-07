@@ -37,6 +37,7 @@ model User {
   email String @unique
   phone String @unique
   passwordHash String
+  googleSubject String? @unique
   refreshTokenHash String?
   sessionVersion Int @default(0)
   profileImage String @default("")

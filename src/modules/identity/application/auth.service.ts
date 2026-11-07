@@ -61,6 +61,7 @@ export class AuthService {
     if (
       !user ||
       !user.active ||
+      !!user.googleSubject ||
       (requiredRole && user.role !== requiredRole) ||
       !(await argon2.verify(user.passwordHash, dto.password))
     ) {
@@ -124,7 +125,7 @@ export class AuthService {
     }
     return this.publicUser(user);
   }
-  private async issueTokens(user: AccountRecord, previousRefreshHash?: string) {
+  async issueTokens(user: AccountRecord, previousRefreshHash?: string) {
     const payload = {
       sub: user.id,
       role: user.role,

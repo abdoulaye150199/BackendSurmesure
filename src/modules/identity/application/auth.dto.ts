@@ -1,5 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsPhoneNumber, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsPhoneNumber,
+  IsString,
+  IsIn,
+  ValidateIf,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { TextField } from '../../../shared/validation/fields';
 export class RegisterDto {
   @ApiProperty({ example: 'Fatou', minLength: 2 })
@@ -56,6 +64,20 @@ export class LoginDto {
 }
 export class RefreshDto {
   @IsString() @MaxLength(4096) refreshToken!: string;
+}
+
+export class GoogleLoginDto {
+  @IsString() @MinLength(1) @MaxLength(8192) credential!: string;
+}
+
+export class GoogleRegisterDto extends GoogleLoginDto {
+  @IsIn(['client', 'stylist']) role!: 'client' | 'stylist';
+  @TextField(2, 80) firstName!: string;
+  @TextField(2, 80) lastName!: string;
+  @IsPhoneNumber() phone!: string;
+  @ValidateIf((dto: GoogleRegisterDto) => dto.role === 'stylist' || dto.businessName !== undefined)
+  @TextField(2, 120)
+  businessName?: string;
 }
 
 export class ChangeEmployeePasswordDto {

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthService } from './application/auth.service';
+import { GoogleAuthService } from './application/google-auth.service';
 import { USER_REPOSITORY } from './domain/user.repository';
 import { PrismaUserRepository } from './infrastructure/prisma-user.repository';
 import { AuthController } from './presentation/auth.controller';
@@ -11,6 +12,7 @@ import { RolesGuard } from './presentation/roles.guard';
   controllers: [AuthController],
   providers: [
     AuthService,
+    GoogleAuthService,
     JwtAuthGuard,
     RolesGuard,
     { provide: USER_REPOSITORY, useClass: PrismaUserRepository },

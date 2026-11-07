@@ -7,8 +7,11 @@ import {
   RefreshDto,
   RegisterDto,
   StylistRegisterDto,
+  GoogleLoginDto,
+  GoogleRegisterDto,
 } from '../application/auth.dto';
 import { AuthService } from '../application/auth.service';
+import { GoogleAuthService } from '../application/google-auth.service';
 import { AccountRole } from '../domain/account-role';
 import type { AuthUser } from './current-user.decorator';
 import { CurrentUser } from './current-user.decorator';
@@ -18,7 +21,23 @@ import { RolesGuard } from './roles.guard';
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly google: GoogleAuthService,
+  ) {}
+  @Get('google/config') googleConfig() {
+    return this.google.configuration();
+  }
+  @Post('google/login') @Throttle({ default: { limit: 10, ttl: 60_000 } }) googleLogin(
+    @Body() dto: GoogleLoginDto,
+  ) {
+    return this.google.login(dto.credential);
+  }
+  @Post('google/register') @Throttle({ default: { limit: 5, ttl: 60_000 } }) googleRegister(
+    @Body() dto: GoogleRegisterDto,
+  ) {
+    return this.google.register(dto);
+  }
   @Post('register') @Throttle({ default: { limit: 5, ttl: 60_000 } }) register(
     @Body() dto: RegisterDto,
   ) {
