@@ -6,7 +6,7 @@ permissions:
   contents: read
 concurrency:
   group: backend-quality-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -37,3 +37,49 @@ jobs:
       - run: npx prisma migrate deploy
       - run: npm audit --omit=dev
       - run: npm run check
+  deploy-lws:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # A deployment must not be interrupted while dependencies/migrations change.
+    concurrency:
+      group: lws-production
+      cancel-in-progress: false
+    env:
+      LWS_HOST: ${{ secrets.LWS_SSH_HOST }}
+      LWS_USER: ${{ secrets.LWS_SSH_USER }}
+      LWS_PORT: ${{ secrets.LWS_SSH_PORT }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run prisma:generate
+      - run: npm run build
+      - name: Package compiled backend
+        run: tar -czf "$RUNNER_TEMP/backend.tar.gz" dist prisma scripts package.json package-lock.json Procfile
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.LWS_SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ secrets.LWS_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          : "${LWS_HOST:?Secret LWS_SSH_HOST manquant}"
+          : "${LWS_USER:?Secret LWS_SSH_USER manquant}"
+          : "${LWS_PORT:?Secret LWS_SSH_PORT manquant}"
+          : "${SSH_KEY:?Secret LWS_SSH_PRIVATE_KEY manquant}"
+          : "${KNOWN_HOSTS:?Secret LWS_SSH_KNOWN_HOSTS manquant}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+      - name: Upload and deploy
+        run: |
+          set -euo pipefail
+          scp -o BatchMode=yes -o StrictHostKeyChecking=yes -P "$LWS_PORT" "$RUNNER_TEMP/backend.tar.gz" "$LWS_USER@$LWS_HOST:surmesure-deploy.tar.gz"
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -p "$LWS_PORT" "$LWS_USER@$LWS_HOST" 'umask 077; cat > "$HOME/surmesure-deploy.sh"; bash "$HOME/surmesure-deploy.sh"' < scripts/deploy-lws.sh
+      - name: Check API readiness
+        run: curl --fail --silent --show-error --retry 12 --retry-all-errors --retry-delay 5 --max-time 20 https://api.surmesurestyle.com/v1/health/ready
