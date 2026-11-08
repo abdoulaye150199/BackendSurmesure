@@ -214,6 +214,12 @@ export class CommerceService {
   adminDashboard() {
     return this.administration.adminDashboard();
   }
+  adminUsers(query: PageQueryDto) {
+    return this.administration.adminUsers(query);
+  }
+  adminDeleteUser(actorId: string, id: string) {
+    return this.administration.adminDeleteUser(actorId, id);
+  }
 
   adminSetUserStatus(actorId: string, id: string, active: boolean) {
     return this.administration.adminSetUserStatus(actorId, id, active);

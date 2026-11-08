@@ -11,14 +11,16 @@ import {
 export class PrismaUserRepository implements UserRepository {
   constructor(private readonly db: PrismaService) {}
   findByEmail(email: string) {
-    return this.db.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+    return this.db.user.findUnique({
+      where: { email: email.trim().toLowerCase(), deletedAt: null },
+    });
   }
   findById(id: string) {
-    return this.db.user.findUnique({ where: { id } });
+    return this.db.user.findUnique({ where: { id, deletedAt: null } });
   }
   findAccessById(id: string) {
     return this.db.user.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
       select: { id: true, role: true, email: true, active: true, sessionVersion: true },
     });
   }

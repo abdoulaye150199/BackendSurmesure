@@ -17,7 +17,7 @@ export class CatalogService {
 
   async listCatalog(limit: number, cursor?: string) {
     const items = await this.db.catalogItem.findMany({
-      where: { active: true, stylist: { user: { is: { active: true } } } },
+      where: { active: true, stylist: { user: { is: { active: true, deletedAt: null } } } },
       take: limit,
       ...(cursor && { cursor: { id: cursor }, skip: 1 }),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -52,7 +52,7 @@ export class CatalogService {
 
   getCatalog(id: string) {
     return this.db.catalogItem.findFirstOrThrow({
-      where: { id, active: true, stylist: { user: { is: { active: true } } } },
+      where: { id, active: true, stylist: { user: { is: { active: true, deletedAt: null } } } },
       include: {
         stylist: {
           include: { user: { select: { firstName: true, lastName: true, profileImage: true } } },

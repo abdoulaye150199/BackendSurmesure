@@ -49,7 +49,9 @@ describe('Google authentication boundaries', () => {
       idToken: 'signed-token',
       audience: 'public-client.apps.googleusercontent.com',
     });
-    expect(db.user.findUnique).toHaveBeenCalledWith({ where: { googleSubject: identity.sub } });
+    expect(db.user.findUnique).toHaveBeenCalledWith({
+      where: { googleSubject: identity.sub, deletedAt: null },
+    });
   });
   it('does not register or link an unknown Google account during login', async () => {
     db.user.findUnique.mockResolvedValue(null);

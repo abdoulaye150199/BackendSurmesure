@@ -23,7 +23,7 @@ export class ProfilesService {
 
   listStylists(limit: number, cursor?: string) {
     return this.db.stylistProfile.findMany({
-      where: { user: { is: { active: true } } },
+      where: { user: { is: { active: true, deletedAt: null } } },
       take: limit,
       ...(cursor && { cursor: { id: cursor }, skip: 1 }),
       orderBy: [{ rating: 'desc' }, { id: 'asc' }],

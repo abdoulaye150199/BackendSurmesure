@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { PageQueryDto } from '../../../../shared/application/page.dto';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AccountRole } from '../../../identity/domain/account-role';
 import type { AuthUser } from '../../../identity/presentation/current-user.decorator';
@@ -18,6 +29,15 @@ export class AdminWorkspaceController {
   constructor(private readonly service: CommerceService) {}
   @Get('dashboard') dashboard() {
     return this.service.adminDashboard();
+  }
+  @Get('users') users(@Query() query: PageQueryDto) {
+    return this.service.adminUsers(query);
+  }
+  @Delete('users/:id') deleteUser(
+    @CurrentUser() user: AuthUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.service.adminDeleteUser(user.sub, id);
   }
   @Patch('users/:id/status') userStatus(
     @Param('id', new ParseUUIDPipe()) id: string,

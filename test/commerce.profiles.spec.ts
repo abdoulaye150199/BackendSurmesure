@@ -18,7 +18,10 @@ describe('stylist profiles', () => {
 
     await service.listStylists(10);
     expect(db.stylistProfile.findMany).toHaveBeenLastCalledWith(
-      expect.objectContaining({ take: 10, where: { user: { is: { active: true } } } }),
+      expect.objectContaining({
+        take: 10,
+        where: { user: { is: { active: true, deletedAt: null } } },
+      }),
     );
 
     await service.listStylists(10, 'next-profile');

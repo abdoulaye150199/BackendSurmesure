@@ -741,6 +741,94 @@ describe('workspace HTTP contracts', () => {
       .expect(401);
     await http().post('/v1/auth/login').send({ email: stranger.email, password }).expect(401);
   });
+  it('protects deletion routes and revokes deleted accounts while preserving workshop history', async () => {
+    const passwordHash = await argon2.hash(password);
+    const stylist = await db.user.create({
+      data: {
+        role: 'STYLIST',
+        firstName: 'Deletion',
+        lastName: 'Stylist',
+        email: 'deletion-stylist@example.com',
+        phone: '+221770000081',
+        passwordHash,
+      },
+    });
+    const staff = await db.user.create({
+      data: {
+        role: 'EMPLOYEE',
+        firstName: 'Deletion',
+        lastName: 'Employee',
+        email: 'deletion-employee@example.com',
+        phone: '+221770000082',
+        passwordHash,
+      },
+    });
+    const atelier = await db.stylistProfile.create({
+      data: { userId: stylist.id, businessName: 'Deletion atelier', specialties: [] },
+    });
+    await db.personnel.create({
+      data: {
+        stylistId: atelier.id,
+        userId: staff.id,
+        firstName: staff.firstName,
+        lastName: staff.lastName,
+        email: staff.email,
+        phone: staff.phone,
+        specialization: 'Couture',
+      },
+    });
+    const item = await db.catalogItem.create({
+      data: {
+        stylistId: atelier.id,
+        title: 'Deletion model',
+        imageUrl: '/assets/model.png',
+        price: 5000,
+      },
+    });
+    const order = await db.order.create({
+      data: {
+        stylistId: atelier.id,
+        clientName: 'History client',
+        clientPhone: '+221770000083',
+        description: 'Preserved history',
+        totalPrice: 5000,
+      },
+    });
+    const staffAuth = await authorization(staff);
+    const stylistAuth = await authorization(stylist);
+    const adminAuth = await authorization(admin);
+    await http().delete(`/v1/admin/users/${stylist.id}`).expect(401);
+    await http()
+      .delete(`/v1/admin/users/${stylist.id}`)
+      .set('Authorization', await authorization(client))
+      .expect(403);
+    await http().delete(`/v1/admin/users/${admin.id}`).set('Authorization', adminAuth).expect(400);
+    await http()
+      .delete(`/v1/admin/users/${stylist.id}`)
+      .set('Authorization', adminAuth)
+      .expect(200);
+    expect(
+      (await db.user.findUniqueOrThrow({ where: { id: stylist.id } })).deletedAt,
+    ).not.toBeNull();
+    expect((await db.user.findUniqueOrThrow({ where: { id: staff.id } })).active).toBe(false);
+    expect(await db.order.findUnique({ where: { id: order.id } })).not.toBeNull();
+    expect((await db.catalogItem.findUniqueOrThrow({ where: { id: item.id } })).active).toBe(false);
+    await http().get('/v1/auth/me').set('Authorization', staffAuth).expect(401);
+    await http().get('/v1/auth/me').set('Authorization', stylistAuth).expect(401);
+    await http()
+      .patch(`/v1/admin/users/${stylist.id}/status`)
+      .set('Authorization', adminAuth)
+      .send({ active: true })
+      .expect(404);
+    const listing = await http()
+      .get('/v1/admin/users?limit=100')
+      .set('Authorization', adminAuth)
+      .expect(200);
+    expect(
+      listing.body.data.some((row: { id: string }) => [stylist.id, staff.id].includes(row.id)),
+    ).toBe(false);
+    await http().get(`/v1/catalog/${item.id}`).expect(404);
+  });
   it('revokes the current token on logout', async () => {
     const auth = await authorization(client);
     await http().post('/v1/auth/logout').set('Authorization', auth).expect(201);

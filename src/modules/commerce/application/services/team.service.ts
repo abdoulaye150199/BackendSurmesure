@@ -81,7 +81,7 @@ export class TeamService {
       ...(person.userId
         ? [
             this.db.user.update({
-              where: { id: person.userId },
+              where: { id: person.userId, deletedAt: null },
               data: {
                 active,
                 ...(!active && { refreshTokenHash: null, sessionVersion: { increment: 1 } }),
@@ -133,7 +133,7 @@ export class TeamService {
       if (person.userId) {
         const { specialization: _specialization, ...userData } = data;
         await transaction.user.update({
-          where: { id: person.userId },
+          where: { id: person.userId, deletedAt: null },
           data: {
             ...userData,
             ...(dto.active === false && {

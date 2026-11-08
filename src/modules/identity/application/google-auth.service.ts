@@ -29,13 +29,15 @@ export class GoogleAuthService {
 
   private async verify(credential: string) {
     const clientId = this.configuration().clientId;
-    if (!clientId)
-      {throw new ServiceUnavailableException('La connexion Google est momentanément indisponible.');}
+    if (!clientId) {
+      throw new ServiceUnavailableException('La connexion Google est momentanément indisponible.');
+    }
     try {
       const ticket = await this.google.verifyIdToken({ idToken: credential, audience: clientId });
       const identity = ticket.getPayload();
-      if (!identity?.sub || !identity.email || identity.email_verified !== true)
-        {throw new Error('Invalid identity');}
+      if (!identity?.sub || !identity.email || identity.email_verified !== true) {
+        throw new Error('Invalid identity');
+      }
       return identity;
     } catch {
       throw new UnauthorizedException('Identité Google invalide ou expirée. Réessayez.');
@@ -44,7 +46,9 @@ export class GoogleAuthService {
 
   async login(credential: string) {
     const identity = await this.verify(credential);
-    const user = await this.db.user.findUnique({ where: { googleSubject: identity.sub } });
+    const user = await this.db.user.findUnique({
+      where: { googleSubject: identity.sub, deletedAt: null },
+    });
     if (!user?.active || !['CLIENT', 'STYLIST'].includes(user.role)) {
       throw new UnauthorizedException(
         'Aucun compte inscrit avec Google. Inscrivez-vous d’abord avec Google.',
