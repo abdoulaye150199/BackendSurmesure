@@ -3,3 +3,5 @@ dist
 coverage
 .env
 package-lock.json
+load-results
+load/*.tokens.json

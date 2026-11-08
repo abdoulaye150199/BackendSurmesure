@@ -58,6 +58,12 @@ Les rendez-vous suivent `pending → confirmed → completed`, avec annulation p
 
 ## Contrôles qualité
 
+Les tests de montée en charge (palier de 500 utilisateurs virtuels pendant
+cinq minutes) sont documentés dans [load/README.md](load/README.md).
+`npm run test:load:smoke` vérifie d’abord le parcours ; `npm run test:load`
+lance la montée progressive. Ces commandes requièrent k6 et ne font pas
+partie des tests unitaires ni des déploiements automatiques.
+
 ```bash
 npm run lint
 npm run format:check

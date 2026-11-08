@@ -3,3 +3,5 @@ dist/
 .env
 coverage/
 *.log
+load-results/
+load/*.tokens.json

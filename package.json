@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "test:load": "node scripts/run-load.cjs load",
+    "test:load:smoke": "node scripts/run-load.cjs smoke",
+    "test:load:config": "node --test load/config.test.mjs",
     "build": "nest build",
     "start": "node dist/src/main.js",
     "start:passenger": "node dist/src/main.js",
