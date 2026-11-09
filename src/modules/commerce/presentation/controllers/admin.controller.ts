@@ -9,7 +9,6 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { PageQueryDto } from '../../../../shared/application/page.dto';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AccountRole } from '../../../identity/domain/account-role';
 import type { AuthUser } from '../../../identity/presentation/current-user.decorator';
@@ -17,7 +16,11 @@ import { CurrentUser } from '../../../identity/presentation/current-user.decorat
 import { JwtAuthGuard } from '../../../identity/presentation/jwt-auth.guard';
 import { Roles } from '../../../identity/presentation/roles.decorator';
 import { RolesGuard } from '../../../identity/presentation/roles.guard';
-import { AdminUserStatusDto, UpdateOrderDto } from '../../application/commerce.dto';
+import {
+  AdminUsersQueryDto,
+  AdminUserStatusDto,
+  UpdateOrderDto,
+} from '../../application/commerce.dto';
 import { CommerceService } from '../../application/commerce.service';
 
 @ApiTags('super admin')
@@ -30,7 +33,7 @@ export class AdminWorkspaceController {
   @Get('dashboard') dashboard() {
     return this.service.adminDashboard();
   }
-  @Get('users') users(@Query() query: PageQueryDto) {
+  @Get('users') users(@Query() query: AdminUsersQueryDto) {
     return this.service.adminUsers(query);
   }
   @Delete('users/:id') deleteUser(

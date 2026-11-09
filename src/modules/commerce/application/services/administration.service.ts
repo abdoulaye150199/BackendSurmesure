@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { AppointmentStatus, OrderStatus, UserRole } from '@prisma/client';
+import { AppointmentStatus, OrderStatus, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../../../../infrastructure/prisma/prisma.service';
-import { PageQueryDto } from '../../../../shared/application/page.dto';
+import { AdminUsersQueryDto } from '../dto/administration.dto';
 import { paginate } from '../../../../shared/application/pagination';
 
 @Injectable()
@@ -140,11 +140,33 @@ export class AdministrationService {
     });
   }
 
-  async adminUsers(query: PageQueryDto) {
+  async adminUsers(query: AdminUsersQueryDto) {
+    const search = query.search?.trim();
+    const where: Prisma.UserWhereInput = {
+      deletedAt: null,
+      ...(query.role ? { role: query.role } : {}),
+      ...(search
+        ? {
+            OR: [
+              ...['firstName', 'lastName', 'email', 'phone'].map((field) => ({
+                [field]: { contains: search, mode: 'insensitive' },
+              })),
+              { stylist: { businessName: { contains: search, mode: 'insensitive' } } },
+            ],
+          }
+        : {}),
+    };
+    const total = await this.db.user.count({ where });
+    const totalPages = Math.max(1, Math.ceil(total / query.limit));
+    const page = Math.min(query.page ?? 1, totalPages);
     const rows = await this.db.user.findMany({
-      where: { deletedAt: null },
+      where,
       take: query.limit + 1,
-      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+      ...(query.page !== undefined
+        ? { skip: (page - 1) * query.limit }
+        : query.cursor
+          ? { cursor: { id: query.cursor }, skip: 1 }
+          : {}),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       select: {
         id: true,
@@ -160,7 +182,8 @@ export class AdministrationService {
         stylist: { select: { id: true, businessName: true, specialties: true, rating: true } },
       },
     });
-    return paginate(rows, query.limit);
+    const result = paginate(rows, query.limit);
+    return { ...result, meta: { ...result.meta, total, page, totalPages } };
   }
 
   async adminDeleteUser(actorId: string, id: string) {

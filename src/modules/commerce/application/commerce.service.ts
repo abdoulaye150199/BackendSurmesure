@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { AppointmentStatus } from '@prisma/client';
 import { PageQueryDto } from '../../../shared/application/page.dto';
 import {
+  AdminUsersQueryDto,
   CreateAppointmentDto,
   CreateCatalogItemDto,
   CreateClientModelMeasurementDto,
@@ -214,7 +215,7 @@ export class CommerceService {
   adminDashboard() {
     return this.administration.adminDashboard();
   }
-  adminUsers(query: PageQueryDto) {
+  adminUsers(query: AdminUsersQueryDto) {
     return this.administration.adminUsers(query);
   }
   adminDeleteUser(actorId: string, id: string) {
