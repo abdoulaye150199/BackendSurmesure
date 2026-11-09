@@ -7,6 +7,7 @@ describe('Administrator account deletion', () => {
   function setup(role: UserRole = UserRole.CLIENT) {
     const tx = {
       user: {
+        count: jest.fn().mockResolvedValue(0),
         findUnique: jest.fn().mockResolvedValue({ id: 'target', role }),
         update: jest.fn(),
         updateMany: jest.fn(),
