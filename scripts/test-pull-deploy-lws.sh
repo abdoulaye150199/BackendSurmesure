@@ -19,7 +19,10 @@ for file in package.json package-lock.json Procfile; do printf '{}\n' > "$fixtur
 printf 'private server value\n' > "$LWS_APP_DIR/.env"
 printf 'private source value\n' > "$fixture/source/.env"
 printf 'original code\n' > "$LWS_APP_DIR/dist/old.js"
-printf 'export PATH=%q:$PATH\n' "$fixture/bin" > "$LWS_NODE_ACTIVATE"
+# CloudLinux activation reads optional variables without nounset-safe defaults.
+unset CL_VIRTUAL_ENV
+printf ': "$CL_VIRTUAL_ENV"\n' > "$LWS_NODE_ACTIVATE"
+printf 'export PATH=%q:$PATH\n' "$fixture/bin" >> "$LWS_NODE_ACTIVATE"
 cat > "$fixture/bin/npm" <<'MOCK'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$DEPLOY_TEST_LOG"
