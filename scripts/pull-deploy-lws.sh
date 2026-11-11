@@ -31,7 +31,10 @@ main() {
   deploy_stage="$stage"
   git archive HEAD | tar -x -C "$stage"
   # The server .env and node_modules are never taken from the Git repository.
+  # CloudLinux activation reads optional environment variables without defaults.
+  set +u
   source "${LWS_NODE_ACTIVATE:-$HOME/nodevenv/backend/22/bin/activate}"
+  set -u
   cp "$stage/package.json" "$stage/package-lock.json" "$stage/Procfile" "$app/"
   mkdir -p "$app/prisma" "$app/scripts"
   cp -R "$stage/prisma/." "$app/prisma/"
