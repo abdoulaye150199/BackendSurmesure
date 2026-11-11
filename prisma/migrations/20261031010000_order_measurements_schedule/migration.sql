@@ -1,0 +1,3 @@
+ALTER TABLE "Order"
+ADD COLUMN "measurements" JSONB NOT NULL DEFAULT '{}',
+ADD COLUMN "durationDays" INTEGER;

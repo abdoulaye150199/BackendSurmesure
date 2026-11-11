@@ -1,0 +1,71 @@
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
+import { type CreateAccount, type UserRepository } from '../domain/user.repository';
+export declare class PrismaUserRepository implements UserRepository {
+    private readonly db;
+    constructor(db: PrismaService);
+    findByEmail(email: string): Prisma.Prisma__UserClient<{
+        id: string;
+        role: import(".prisma/client").$Enums.UserRole;
+        email: string;
+        active: boolean;
+        sessionVersion: number;
+        firstName: string;
+        lastName: string;
+        phone: string;
+        passwordHash: string;
+        googleSubject: string | null;
+        refreshTokenHash: string | null;
+        profileImage: string;
+        mustChangePassword: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+    } | null, null, import("@prisma/client/runtime/library").DefaultArgs, Prisma.PrismaClientOptions>;
+    findById(id: string): Prisma.Prisma__UserClient<{
+        id: string;
+        role: import(".prisma/client").$Enums.UserRole;
+        email: string;
+        active: boolean;
+        sessionVersion: number;
+        firstName: string;
+        lastName: string;
+        phone: string;
+        passwordHash: string;
+        googleSubject: string | null;
+        refreshTokenHash: string | null;
+        profileImage: string;
+        mustChangePassword: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+    } | null, null, import("@prisma/client/runtime/library").DefaultArgs, Prisma.PrismaClientOptions>;
+    findAccessById(id: string): Prisma.Prisma__UserClient<{
+        id: string;
+        role: import(".prisma/client").$Enums.UserRole;
+        email: string;
+        active: boolean;
+        sessionVersion: number;
+    } | null, null, import("@prisma/client/runtime/library").DefaultArgs, Prisma.PrismaClientOptions>;
+    create({ businessName, ...data }: CreateAccount): Promise<{
+        id: string;
+        role: import(".prisma/client").$Enums.UserRole;
+        email: string;
+        active: boolean;
+        sessionVersion: number;
+        firstName: string;
+        lastName: string;
+        phone: string;
+        passwordHash: string;
+        googleSubject: string | null;
+        refreshTokenHash: string | null;
+        profileImage: string;
+        mustChangePassword: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+    }>;
+    changePassword(id: string, expectedHash: string, passwordHash: string): Promise<boolean>;
+    saveRefreshToken(id: string, refreshTokenHash: string, sessionVersion: number, previousHash?: string): Promise<boolean>;
+    revokeSessions(id: string): Promise<void>;
+}
