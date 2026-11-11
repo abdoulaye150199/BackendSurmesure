@@ -1,7 +1,9 @@
 name: Backend quality
 on:
   push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
@@ -37,9 +39,35 @@ jobs:
       - run: npx prisma migrate deploy
       - run: npm audit --omit=dev
       - run: npm run check
+      - run: bash scripts/test-pull-deploy-lws.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lws-compiled
+          include-hidden-files: true
+          path: |
+            dist/
+            prisma/
+            scripts/
+            package.json
+            package-lock.json
+            Procfile
+            .cpanel.yml
+  publish-lws:
+    needs: check
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && vars.LWS_DEPLOY_MODE != 'ssh'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: lws-compiled
+      - name: Publish validated compiled version
+        run: bash scripts/publish-lws-release.sh
   deploy-lws:
     needs: check
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' && vars.LWS_DEPLOY_MODE == 'ssh'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # A deployment must not be interrupted while dependencies/migrations change.

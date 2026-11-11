@@ -47,5 +47,4 @@ describe('deployment migration connection', () => {
     expect(isAdvisoryLockTimeout('P3009 failed migration')).toBe(false);
     expect(isAdvisoryLockTimeout('P1002: database connection timeout')).toBe(false);
   });
-
 });

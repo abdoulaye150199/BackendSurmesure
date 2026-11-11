@@ -1,0 +1,4 @@
+---
+deployment:
+  tasks:
+    - /bin/bash scripts/pull-deploy-lws.sh --local

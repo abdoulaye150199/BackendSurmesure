@@ -35,6 +35,7 @@ Les comptes classiques continuent à fonctionner avec leur mot de passe.
    Ne garder que les domaines réellement utilisés. En mode Test, ajouter les
    comptes Google de test autorisés ; publier l’application Google avant
    l’ouverture au public selon les exigences affichées par Google.
+
 3. Copier le **Client ID** se terminant par `.apps.googleusercontent.com`.
    Cette intégration utilise un callback JavaScript, sans URI de redirection
    backend et sans secret client Google.
@@ -60,6 +61,7 @@ Les comptes classiques continuent à fonctionner avec leur mot de passe.
    `DATABASE_URL_UNPOOLED` qui ont priorité. Ne pas utiliser une ancienne URL
    Neon. Les variables du panneau cPanel ne sont pas automatiquement reprises
    par un terminal déjà ouvert.
+
 3. Redémarrer Passenger après configuration de `GOOGLE_CLIENT_ID`, puis
    déployer le frontend sur Vercel. Sans Client ID, Google reste indisponible
    et l’authentification classique reste accessible.
@@ -71,5 +73,6 @@ Le test OAuth réel requiert le Client ID et un compte Google autorisé. Les
 tests unitaires simulent la vérification Google et ne remplacent pas ce test.
 
 Références :
+
 - https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid
 - https://developers.google.com/identity/gsi/web/guides/verify-google-id-token

@@ -1,67 +1,128 @@
 # Déploiement automatique LWS
 
-Le dépôt GitHub `abdoulaye150199/BackendSurmesure` déploie chaque push sur
-`main` après réussite du job `check`. Sauvegarder un fichier dans l’IDE ne
-déploie rien : il faut créer un commit et le pousser sur GitHub.
+## Méthode recommandée : LWS récupère les versions validées
 
-## Configuration initiale
+Le pare-feu LWS impose une autorisation IP par IP pour le SSH entrant.
+Les machines GitHub Actions ayant des IP variables, le mode par défaut est
+maintenant une récupération HTTPS depuis LWS : aucun secret SSH LWS dans
+GitHub n'est nécessaire pour ce mode.
 
-1. Vérifier auprès de LWS le nom du serveur et le port **SSH** (le port
-   cPanel 2083 n’est pas le port SSH), et que les connexions SSH externes
-   par clé sont autorisées pour ce compte.
-2. Sur ton ordinateur, créer une clé dédiée :
+1. Un commit est poussé sur `main` dans `abdoulaye150199/BackendSurmesure`.
+2. GitHub Actions exécute `check` (analyse, formatage, types, compilation,
+   tests avec PostgreSQL et couverture), ainsi que les tests du déploiement.
+3. Le job `publish-lws` publie les fichiers compilés sur la branche
+   `lws-deploy`, seulement si les contrôles réussissent. La branche contient
+   `dist`, Prisma, les scripts d'installation et les fichiers npm. Le `.env`
+   et `node_modules` locaux n'y sont jamais copiés.
+4. Une tâche cron sur LWS récupère cette branche périodiquement. Si la version
+   diffère de celle installée, elle installe les dépendances, génère Prisma,
+   applique les migrations, remplace `dist` et demande le redémarrage Passenger.
+5. Le marqueur `~/backend/.deployed-release` est écrit après réussite du
+   contrôle HTTP `/v1/health/ready`. Sans nouvelle version, aucun redémarrage
+   ni installation npm n'est effectué.
 
-   ```bash
-   ssh-keygen -t ed25519 -f ~/.ssh/surmesure_lws -C github-actions-surmesure
-   ```
+Le frontend conserve son déploiement Vercel séparé. Sauvegarder un fichier
+local ne déploie rien : il faut créer un commit et le pousser.
 
-   Pour cet usage automatisé, laisser la phrase secrète vide. Dans cPanel,
-   importer puis autoriser uniquement la clé **publique**
-   `~/.ssh/surmesure_lws.pub` via « Accès SSH → Gérer les clés SSH ».
-   Tester la connexion SSH depuis ton ordinateur avec cette clé avant de continuer.
-3. Dans GitHub → dépôt BackendSurmesure → Settings → Secrets and variables
-   → Actions, créer ces **Repository secrets** :
+## Installation initiale
 
-   | Secret | Valeur |
-   | --- | --- |
-   | `LWS_SSH_HOST` | Nom du serveur SSH confirmé par LWS |
-   | `LWS_SSH_PORT` | Port SSH confirmé par LWS |
-   | `LWS_SSH_USER` | `c2900724c` |
-   | `LWS_SSH_PRIVATE_KEY` | Contenu complet de `~/.ssh/surmesure_lws`, clé privée dédiée |
-   | `LWS_SSH_KNOWN_HOSTS` | Ligne(s) known_hosts du serveur dont l’empreinte a été vérifiée auprès de LWS |
+### 1. Publier le workflow
 
-   Pour préparer les lignes known_hosts, utiliser `ssh-keyscan -p PORT HOTE`
-   puis vérifier leur empreinte auprès de LWS avant de les enregistrer.
-   Ne jamais publier de clé privée dans le dépôt ou dans une conversation.
-4. Sur LWS, créer `/home/c2900724c/backend/.env` avec un éditeur cPanel,
-   puis régler ses permissions à `600`. Il doit contenir la `DATABASE_URL`
-   PostgreSQL locale validée et les mêmes variables privées que le panneau
-   Node.js (secrets JWT, CORS, etc.). Le terminal SSH ne reçoit pas forcément
-   les variables du panneau. S’il contient `DIRECT_URL` ou
-   `DATABASE_URL_UNPOOLED`, elles doivent aussi pointer vers PostgreSQL LWS :
-   elles ont priorité pour les migrations. Ne pas conserver d’URL Neon.
+Pousser les modifications de ce dépôt sur `main`, puis ouvrir GitHub →
+Actions → **Backend quality**. Attendre que `check` et `publish-lws` passent
+au vert et que la branche `lws-deploy` soit créée.
 
-Le `.env` local de ton ordinateur n’est jamais téléversé. Les variables
-du panneau Passenger restent utilisées par le processus web ; maintenir
-leur cohérence avec le `.env` du serveur.
+Le workflow demande `contents: write` uniquement pour la publication.
+Si une règle du dépôt interdit l'écriture de cette branche par GitHub Actions,
+configurer une règle compatible. Ne pas modifier cette branche manuellement :
+elle est alimentée par les versions validées.
 
-## Fonctionnement
+La variable GitHub `LWS_DEPLOY_MODE` doit être absente ou différente de `ssh`.
+Les anciens secrets SSH peuvent rester enregistrés ; ils ne sont pas utilisés.
 
-Le workflow compile sous Node 22, envoie seulement `dist`, `prisma`,
-`scripts` et les fichiers npm/Procfile. Sur LWS, il active
-`~/nodevenv/backend/22/bin/activate`, installe les dépendances de production,
-génère Prisma et applique `prisma migrate deploy`. Il ne lance aucun seed.
-Il met à jour `~/backend/tmp/restart.txt`, puis vérifie `/v1/health/ready`.
+### 2. Préparer LWS une fois
 
-Le déploiement met à jour l’application en place : une brève indisponibilité
-est possible. Il n’y a pas de retour arrière automatique du code ou des
-migrations. Sauvegarder la base avant toute migration métier et garder les
-migrations compatibles avec le code encore en cours d’exécution.
+Le `.env` existant de `~/backend` doit contenir les variables du serveur,
+notamment l'URL PostgreSQL LWS. Les variables `DIRECT_URL` et
+`DATABASE_URL_UNPOOLED`, si présentes, doivent viser la même base LWS :
+elles ont priorité pour les migrations. Garder les permissions du `.env` à 600.
+Ne pas envoyer le `.env` de l'ordinateur.
 
-## Premier lancement
+Dans le **Terminal cPanel**, cloner la branche compilée dans un dossier séparé :
 
-Pousser ces changements sur `main`, puis suivre GitHub → Actions →
-« Backend quality ». Le job `deploy-lws` ne démarre que si `check` réussit.
-Le premier déploiement permettra de valider l’accès réel au serveur.
-Le frontend conserve son propre déploiement et doit utiliser
-`https://api.surmesurestyle.com/v1` pour appeler ce backend.
+```bash
+git clone --branch lws-deploy --single-branch https://github.com/abdoulaye150199/BackendSurmesure.git "$HOME/surmesure-release"
+bash "$HOME/surmesure-release/scripts/pull-deploy-lws.sh"
+```
+
+Ne pas cloner dans `~/backend`, qui contient l'application et ses secrets.
+Si `surmesure-release` existe déjà, vérifier son contenu avant de le réutiliser.
+Le dépôt est actuellement public ; une URL HTTPS suffit. S'il devient privé,
+préparer un accès Git en lecture seule depuis LWS avant de créer la tâche cron.
+
+Cette première exécution doit finir par « migrations et contrôle de disponibilité
+réussis ». Elle installe réellement la version en production. Sauvegarder la base
+avant la première exécution et avant toute migration métier.
+
+### 3. Automatiser dans cPanel
+
+Ouvrir **Avancé → Tâches cron / Cron Jobs**. Si l'offre autorise cet intervalle,
+choisir toutes les cinq minutes (`*/5 * * * *`) et saisir comme commande :
+
+```bash
+/bin/bash /home/c2900724c/surmesure-release/scripts/pull-deploy-lws.sh >> /home/c2900724c/surmesure-deploy.log 2>&1
+```
+
+Ne pas inclure les cinq champs de fréquence dans le champ Commande de cPanel.
+L'hébergement doit autoriser Git HTTPS sortant vers GitHub, `flock`, l'environnement
+Node 22 existant, npm et les tâches cron. Le premier essai sur LWS validera ces
+conditions. Le script a été testé localement avec un dépôt Git temporaire et des
+commandes npm/HTTP simulées ; cela ne remplace pas ce premier essai réel.
+
+Après cette configuration, un push validé sera récupéré au prochain passage du
+cron. Le temps total dépend des contrôles GitHub et de l'installation sur LWS.
+
+## Option : interface Git Version Control de cPanel
+
+Un clone de la branche **lws-deploy** peut aussi être géré par cPanel.
+Le fichier `.cpanel.yml` exécute le même installateur en mode `--local` :
+**Update from Remote** puis **Deploy HEAD Commit** installe la version sélectionnée.
+Ces boutons seuls restent manuels. Ne pas déployer `main`, qui ne contient pas
+le dossier compilé. Notre script cron effectue lui-même la récupération des mises
+à jour et l'installation, sans nécessiter de clic dans cette interface.
+
+Référence cPanel :
+https://docs.cpanel.net/knowledge-base/web-services/guide-to-git-set-up-deployment-cron-jobs/
+
+## Vérifier et dépanner
+
+- GitHub `check` échoue : consulter l'étape en erreur. Aucune nouvelle version
+  n'est publiée. « Ping Render » ne valide pas ce déploiement.
+- `publish-lws` réussit : la version est disponible dans GitHub, pas nécessairement
+  déjà installée sur LWS. Consulter le journal serveur pour l'installation.
+- Branche `lws-deploy` introuvable : terminer le premier workflow avant de cloner.
+- Consulter le journal avec `tail -n 80 ~/surmesure-deploy.log` et le commit installé
+  avec `cat ~/backend/.deployed-release`. Masquer les données privées avant partage.
+- Le script refuse un clone modifié localement ou une branche différente, et utilise
+  un verrou pour empêcher deux installations simultanées. Le prochain passage
+  réessaie après un échec ; une migration échouée peut nécessiter une intervention.
+- Pour relancer les contrôles et la publication : GitHub → Actions → Backend quality
+  → **Run workflow**, branche `main`.
+- Pour suspendre les déploiements, désactiver la tâche cron dans cPanel.
+
+L'installation met à jour les fichiers en place. Une indisponibilité brève est
+possible ; il n'y a pas de restauration automatique des dépendances ni de la base.
+Les migrations doivent être compatibles avec le code encore exécuté. Le contrôle
+de disponibilité vérifie l'API, pas toutes les fonctionnalités métier.
+
+## Ancien mode SSH (optionnel)
+
+Le job `deploy-lws` est conservé mais désactivé par défaut. Il est activé uniquement
+avec la variable GitHub `LWS_DEPLOY_MODE=ssh`, à utiliser si l'IP de la machine de
+déploiement est autorisée et l'empreinte serveur vérifiée. Ne pas conserver en même
+temps une tâche cron active pour le même backend.
+
+Ce mode nécessite les secrets `LWS_SSH_HOST`, `LWS_SSH_PORT`, `LWS_SSH_USER`,
+`LWS_SSH_PRIVATE_KEY` et `LWS_SSH_KNOWN_HOSTS`. L'accès réussi depuis un ordinateur
+ne garantit pas l'accès depuis GitHub Actions. Le support LWS n'a pas encore validé
+ce parcours avec les IP variables des machines GitHub.
