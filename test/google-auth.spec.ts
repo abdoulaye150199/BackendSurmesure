@@ -39,6 +39,7 @@ describe('Google authentication boundaries', () => {
       { get: () => 'public-client.apps.googleusercontent.com' } as never,
       db as never,
       auth as never,
+      { send: jest.fn().mockResolvedValue(undefined) } as never,
     );
   });
   afterEach(() => jest.restoreAllMocks());
@@ -98,13 +99,18 @@ describe('Google authentication boundaries', () => {
     expect(auth.issueTokens).not.toHaveBeenCalled();
   });
   it('remains disabled until an OAuth Client ID is configured', async () => {
-    service = new GoogleAuthService({ get: () => undefined } as never, db as never, auth as never);
+    service = new GoogleAuthService(
+      { get: () => undefined } as never,
+      db as never,
+      auth as never,
+      { send: jest.fn() } as never,
+    );
     await expect(service.login('token')).rejects.toBeInstanceOf(ServiceUnavailableException);
     expect(verify).not.toHaveBeenCalled();
   });
   it('refuses password login for Google-only accounts', async () => {
     const users = { findByEmail: jest.fn().mockResolvedValue(user) };
-    const passwordAuth = new AuthService(users as never, {} as never, {} as never);
+    const passwordAuth = new AuthService(users as never, {} as never, {} as never, { send: jest.fn() } as never);
     await expect(
       passwordAuth.login({ email: identity.email, password: 'anything' }),
     ).rejects.toBeInstanceOf(UnauthorizedException);

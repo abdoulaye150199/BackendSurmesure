@@ -20,6 +20,7 @@ import {
   type UserRepository,
 } from '../domain/user.repository';
 import { ChangeEmployeePasswordDto, LoginDto, RegisterDto, StylistRegisterDto } from './auth.dto';
+import { WelcomeEmailService } from './welcome-email.service';
 
 @Injectable()
 export class AuthService {
@@ -27,6 +28,7 @@ export class AuthService {
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly welcomeEmail: WelcomeEmailService,
   ) {}
   async register(dto: RegisterDto | StylistRegisterDto) {
     if (await this.users.findByEmail(dto.email)) {
@@ -54,7 +56,9 @@ export class AuthService {
       }
       throw error;
     }
-    return this.issueTokens(user);
+    const session = await this.issueTokens(user);
+    void this.welcomeEmail.send(user.email, user.firstName);
+    return session;
   }
   async login(dto: LoginDto, requiredRole?: AccountRole) {
     const user = await this.users.findByEmail(dto.email);

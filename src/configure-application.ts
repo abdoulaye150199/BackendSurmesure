@@ -16,9 +16,10 @@ export function configureApplication(app: NestExpressApplication): void {
       .map((value) => value.trim())
       .filter(Boolean),
   );
-  // Keep the primary production frontend available even if its Render
-  // environment variable has not yet been updated.
-  allowedOrigins.add('https://surmesure.liggeypro.com');
+  // Keep both canonical public hostnames available even while deployment
+  // environment variables are being rolled out. Add staging domains via env.
+  allowedOrigins.add('https://www.surmesurestyle.com');
+  allowedOrigins.add('https://surmesurestyle.com');
   app.enableCors({
     origin(origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) {
       const local =

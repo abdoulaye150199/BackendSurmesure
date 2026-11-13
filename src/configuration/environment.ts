@@ -17,6 +17,13 @@ export const envSchema = z
       .string()
       .regex(/^[a-zA-Z0-9._-]+\.apps\.googleusercontent\.com$/)
       .optional(),
+    SMTP_HOST: z.string().trim().min(1).optional(),
+    SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(465),
+    SMTP_SECURE: z.enum(['true', 'false']).default('true'),
+    SMTP_USER: z.string().trim().min(1).optional(),
+    SMTP_PASSWORD: z.string().min(1).optional(),
+    MAIL_FROM: z.string().email().optional(),
+    APP_PUBLIC_URL: z.string().url().default('https://www.surmesurestyle.com'),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
     DATABASE_URL: z
       .string()
@@ -54,6 +61,21 @@ export const envSchema = z
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
   })
   .superRefine((env, context) => {
+    const smtpFields = [env.SMTP_HOST, env.SMTP_USER, env.SMTP_PASSWORD, env.MAIL_FROM];
+    if (smtpFields.some(Boolean) && !smtpFields.every(Boolean)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['SMTP_HOST'],
+        message: 'Configurez SMTP_HOST, SMTP_USER, SMTP_PASSWORD et MAIL_FROM ensemble.',
+      });
+    }
+    if (env.SMTP_PORT === 465 && env.SMTP_SECURE !== 'true') {
+      context.addIssue({
+        code: 'custom',
+        path: ['SMTP_SECURE'],
+        message: 'Le port SMTP 465 nécessite une connexion TLS directe.',
+      });
+    }
     if (env.JWT_ACCESS_SECRET === env.JWT_REFRESH_SECRET) {
       context.addIssue({
         code: 'custom',
@@ -71,6 +93,16 @@ export const envSchema = z
         code: 'custom',
         path: ['JWT_ACCESS_SECRET'],
         message: 'Utilisez des secrets de production dédiés.',
+      });
+    }
+    if (
+      env.NODE_ENV === 'production' &&
+      env.CORS_ORIGINS.split(',').some((origin) => !origin.trim().startsWith('https://'))
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['CORS_ORIGINS'],
+        message: 'En production, toutes les origines CORS doivent utiliser HTTPS.',
       });
     }
   });

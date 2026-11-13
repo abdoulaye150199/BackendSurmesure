@@ -30,6 +30,10 @@ Il s’agit d’une architecture de services NestJS avec règles métier isolée
 
 ## Sécurité des sessions
 
+### Courriels de bienvenue
+
+Après la création réussie d’un compte par e-mail/mot de passe ou par Google, l’API tente d’envoyer un courriel de bienvenue via SMTP. L’envoi est asynchrone et n’interrompt pas l’inscription si le serveur mail est indisponible. Configurer `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` et `MAIL_FROM` dans l’environnement d’exécution. Utiliser les paramètres affichés dans cPanel → Comptes de messagerie → Connect Devices ; ne pas reprendre le mot de passe du compte cPanel. Avec le port 465, garder TLS (`SMTP_SECURE=true`) ; avec le port 587, utiliser STARTTLS (`SMTP_SECURE=false`). `APP_PUBLIC_URL` définit le lien vers le site. Si SMTP n’est pas configuré, l’inscription continue et aucun message n’est envoyé.
+
 Les mots de passe et les refresh tokens sont hachés avec Argon2. Les jetons d’accès portent une version de session. Chaque requête authentifiée vérifie l’existence du compte, son état actif, son rôle courant et sa version en base. Une désactivation, une déconnexion ou un changement du mot de passe employé invalide immédiatement les anciens jetons. Le renouvellement consomme atomiquement l’ancien refresh token ; un jeton déjà renouvelé ne peut pas être rejoué.
 
 Les secrets d’accès et de renouvellement doivent être distincts, d’au moins 32 caractères. Les durées acceptées utilisent `s`, `m`, `h` ou `d` ; un jeton d’accès ne dépasse pas une heure. Les mots de passe, refresh tokens et en-têtes d’authentification sont masqués dans les logs.
@@ -89,7 +93,7 @@ Le workflow `.github/workflows/quality.yml` exécute ces contrôles avec Postgre
 
 ## Déploiement Render / Neon
 
-- Déclarer `NODE_ENV=production`, `DATABASE_URL`, deux secrets JWT dédiés et `CORS_ORIGINS` avec les origines exactes, dont `https://surmesure-front.vercel.app` et `https://surmesure.liggeypro.com`.
+- Déclarer `NODE_ENV=production`, `DATABASE_URL`, deux secrets JWT dédiés et `CORS_ORIGINS` avec les origines HTTPS utilisées, notamment `https://www.surmesurestyle.com` et `https://surmesurestyle.com`. Les origines de prévisualisation Vercel doivent être ajoutées explicitement si elles servent l'application.
 - Sur Render, régler `TRUST_PROXY_HOPS` au nombre réel de proxies de confiance (généralement `1`). Le défaut `0` convient à l’accès local direct.
 - `/docs` est désactivé en production sauf si `SWAGGER_ENABLED=true`.
 - Appliquer **toutes** les migrations avant d’utiliser ce backend. Elles ajoutent les versions de sessions, les confirmations de rattachement et les notifications. Elles ne créent aucun compte de démonstration.
@@ -138,7 +142,7 @@ Les migrations de production restent une action séparée du démarrage. `DIRECT
 
 ### Déploiement Passenger LWS
 
-Le backend utilise PostgreSQL/Neon aussi sur LWS. Dans cPanel, sélectionner Node.js 22, définir le dossier de l’application à la racine `backend SurMesure`, puis indiquer le point d’entrée `dist/src/main.js` (ou la commande `npm start`). Ajouter les dépendances depuis le `package-lock.json` avec `npm ci --omit=dev` après l’installation de Node 22. Définir les variables côté panneau Passenger : `NODE_ENV=production`, `DATABASE_URL` (URL Neon poolée), `DIRECT_URL` (URL Neon directe), `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGINS`, `PORT` si LWS le demande. Ne pas téléverser le `.env` local.
+Le backend utilise PostgreSQL/Neon aussi sur LWS. Dans cPanel, sélectionner Node.js 22, définir le dossier de l’application à la racine `backend SurMesure`, puis indiquer le point d’entrée `dist/src/main.js` (ou la commande `npm start`). Ajouter les dépendances depuis le `package-lock.json` avec `npm ci --omit=dev` après l’installation de Node 22. Définir les variables côté panneau Passenger : `NODE_ENV=production`, `DATABASE_URL` (URL Neon poolée), `DIRECT_URL` (URL Neon directe), `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGINS` incluant `https://www.surmesurestyle.com` et `https://surmesurestyle.com`, `PORT` si LWS le demande. Ne pas téléverser le `.env` local. Les origines en production doivent toutes utiliser HTTPS.
 
 Compiler localement depuis le dossier backend avec Node.js 22 :
 

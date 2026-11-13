@@ -27,7 +27,8 @@ describe('account registration', () => {
       getOrThrow: jest.fn().mockReturnValue('test-secret'),
       get: jest.fn((_key: string, fallback: string) => fallback),
     };
-    const service = new AuthService(users as never, jwt as never, config as never);
+    const welcomeEmail = { send: jest.fn().mockResolvedValue(undefined) };
+    const service = new AuthService(users as never, jwt as never, config as never, welcomeEmail as never);
     const password = 'MotDePasse!2026';
 
     await service.register({
@@ -43,6 +44,7 @@ describe('account registration', () => {
     expect(storedAccount.passwordHash).not.toBe(password);
     expect(storedAccount.role).toBe('CLIENT');
     expect(users.saveRefreshToken).toHaveBeenCalledWith('user-1', expect.any(String), 0, undefined);
+    expect(welcomeEmail.send).toHaveBeenCalledWith('fatou@example.com', 'Fatou');
   });
 
   it('returns a conflict when the email or phone is already registered', async () => {
@@ -51,7 +53,7 @@ describe('account registration', () => {
       findByEmail: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockRejectedValue(duplicate),
     };
-    const service = new AuthService(users as never, {} as never, {} as never);
+    const service = new AuthService(users as never, {} as never, {} as never, { send: jest.fn() } as never);
 
     await expect(
       service.register({

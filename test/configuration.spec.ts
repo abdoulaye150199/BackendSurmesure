@@ -41,9 +41,24 @@ describe('configuration contracts', () => {
       envSchema.parse({
         ...valid,
         NODE_ENV: 'production',
-        CORS_ORIGINS: 'https://surmesure-front.vercel.app,http://localhost:4200',
+        CORS_ORIGINS: 'https://surmesure-front.vercel.app',
       }).NODE_ENV,
     ).toBe('production');
+  });
+  it('accepts a complete SMTP configuration and rejects partial settings', () => {
+    expect(
+      envSchema.parse({
+        ...valid,
+        SMTP_HOST: 'mail.example.com',
+        SMTP_PORT: '465',
+        SMTP_SECURE: 'true',
+        SMTP_USER: 'welcome@example.com',
+        SMTP_PASSWORD: 'secret',
+        MAIL_FROM: 'welcome@example.com',
+      }).SMTP_PORT,
+    ).toBe(465);
+    expect(() => envSchema.parse({ ...valid, SMTP_HOST: 'mail.example.com' })).toThrow();
+    expect(() => envSchema.parse({ ...valid, SMTP_PORT: 465, SMTP_SECURE: 'false' })).toThrow();
   });
   it('preserves safe request IDs and replaces arbitrary incoming values', () => {
     const uuid = '11111111-1111-4111-8111-111111111111';

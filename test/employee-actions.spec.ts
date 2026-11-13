@@ -101,7 +101,11 @@ describe('employee password change', () => {
       getOrThrow: jest.fn().mockReturnValue('secret'),
       get: jest.fn((_key, fallback) => fallback),
     };
-    return { user, users, service: new AuthService(users as never, jwt as never, config as never) };
+    return {
+      user,
+      users,
+      service: new AuthService(users as never, jwt as never, config as never, { send: jest.fn() } as never),
+    };
   };
   it('requires the current password before changing anything', async () => {
     const { users, service } = await setup();

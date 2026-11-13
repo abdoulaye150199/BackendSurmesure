@@ -48,6 +48,15 @@ notamment l'URL PostgreSQL LWS. Les variables `DIRECT_URL` et
 elles ont priorité pour les migrations. Garder les permissions du `.env` à 600.
 Ne pas envoyer le `.env` de l'ordinateur.
 
+Pour les courriels de bienvenue, créer ou utiliser une boîte dédiée dans cPanel,
+ouvrir **Connect Devices** et recopier les paramètres SMTP sécurisés dans
+l’environnement Passenger : `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`,
+`SMTP_PASSWORD`, `MAIL_FROM` et `APP_PUBLIC_URL`. Le port 465 utilise TLS direct ;
+le port 587 utilise STARTTLS. `SMTP_USER` et `MAIL_FROM` doivent correspondre à
+la boîte ou à une adresse d’expédition autorisée. Le mot de passe est celui de
+la boîte mail, jamais celui de cPanel. Redémarrer Passenger après modification.
+Faire un essai avec une adresse contrôlée et vérifier réception, spam et journaux.
+
 Dans le **Terminal cPanel**, cloner la branche compilée dans un dossier séparé :
 
 ```bash

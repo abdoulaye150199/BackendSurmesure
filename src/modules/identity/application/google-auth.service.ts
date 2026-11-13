@@ -13,6 +13,7 @@ import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { canonicalPhone } from '../../../shared/domain/contact';
 import { AuthService } from './auth.service';
 import { GoogleRegisterDto } from './auth.dto';
+import { WelcomeEmailService } from './welcome-email.service';
 
 @Injectable()
 export class GoogleAuthService {
@@ -21,6 +22,7 @@ export class GoogleAuthService {
     private readonly config: ConfigService,
     private readonly db: PrismaService,
     private readonly auth: AuthService,
+    private readonly welcomeEmail: WelcomeEmailService,
   ) {}
 
   configuration() {
@@ -75,7 +77,9 @@ export class GoogleAuthService {
             : {}),
         },
       });
-      return this.auth.issueTokens(user);
+      const session = await this.auth.issueTokens(user);
+      void this.welcomeEmail.send(user.email, user.firstName);
+      return session;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException(
