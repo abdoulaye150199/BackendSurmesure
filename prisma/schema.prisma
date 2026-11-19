@@ -14,6 +14,17 @@ enum UserRole {
   ADMIN
 }
 
+enum SubscriptionPlan {
+  ESSENTIEL
+  ATELIER
+  STUDIO
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+}
+
 enum OrderStatus {
   pending
   inProgress
@@ -42,6 +53,11 @@ model User {
   sessionVersion Int @default(0)
   profileImage String @default("")
   active Boolean @default(true)
+  approvalStatus ApprovalStatus @default(approved)
+  requestedPlan SubscriptionPlan?
+  subscriptionPlan SubscriptionPlan?
+  approvedAt DateTime?
+  approvedById String? @db.Uuid
   deletedAt DateTime?
   mustChangePassword Boolean @default(false)
   createdAt DateTime @default(now())
@@ -53,6 +69,7 @@ model User {
   appointments Appointment[] @relation("ClientAppointments")
   notifications ClientNotification[]
   @@index([role, active])
+  @@index([approvalStatus, createdAt(sort: Desc)])
 }
 
 model StylistProfile {

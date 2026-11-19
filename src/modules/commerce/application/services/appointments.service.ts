@@ -32,7 +32,10 @@ export class AppointmentsService {
         select: { id: true },
       }),
       this.db.stylistProfile.findFirst({
-        where: { id: dto.stylistId, user: { is: { active: true } } },
+        where: {
+          id: dto.stylistId,
+          user: { is: { active: true, subscriptionPlan: { in: ['ATELIER', 'STUDIO'] } } },
+        },
         select: { id: true },
       }),
     ]);
@@ -40,7 +43,9 @@ export class AppointmentsService {
       throw new ForbiddenException('Un compte client actif est nécessaire.');
     }
     if (!stylist) {
-      throw new NotFoundException('Cet atelier n’est pas disponible.');
+      throw new NotFoundException(
+        'Cet atelier ne reçoit pas de rendez-vous en ligne avec sa formule actuelle.',
+      );
     }
     try {
       return await this.db.appointment.create({

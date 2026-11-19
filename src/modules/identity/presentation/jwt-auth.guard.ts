@@ -35,12 +35,18 @@ export class JwtAuthGuard implements CanActivate {
     const user = await this.users.findAccessById(claims.sub);
     if (
       !user?.active ||
+      user.approvalStatus === 'pending' ||
       user.role !== claims.role ||
       user.sessionVersion !== (claims.sessionVersion ?? 0)
     ) {
       throw new UnauthorizedException('Session révoquée ou compte désactivé');
     }
-    request.user = { sub: user.id, role: user.role, email: user.email };
+    request.user = {
+      sub: user.id,
+      role: user.role,
+      email: user.email,
+      subscriptionPlan: user.subscriptionPlan,
+    };
     return true;
   }
 }

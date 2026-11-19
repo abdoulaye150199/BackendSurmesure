@@ -21,7 +21,7 @@ describe('Google authentication boundaries', () => {
   const user = { id: 'user-1', googleSubject: identity.sub, role: 'CLIENT', active: true };
   let verify: jest.SpyInstance;
   let db: { user: { findUnique: jest.Mock; create: jest.Mock } };
-  let auth: { issueTokens: jest.Mock };
+  let auth: { issueTokens: jest.Mock; pendingRegistration: jest.Mock };
   let service: GoogleAuthService;
 
   beforeEach(() => {
@@ -34,7 +34,12 @@ describe('Google authentication boundaries', () => {
         create: jest.fn().mockResolvedValue(user),
       },
     };
-    auth = { issueTokens: jest.fn().mockResolvedValue({ token: 'session' }) };
+    auth = {
+      issueTokens: jest.fn().mockResolvedValue({ token: 'session' }),
+      pendingRegistration: jest
+        .fn()
+        .mockReturnValue({ status: 'pending', data: { isActive: false } }),
+    };
     service = new GoogleAuthService(
       { get: () => 'public-client.apps.googleusercontent.com' } as never,
       db as never,
@@ -80,16 +85,20 @@ describe('Google authentication boundaries', () => {
     expect(db.user.create).not.toHaveBeenCalled();
   });
   it('creates a Google identity only through registration and preserves stylist profile data', async () => {
-    await service.register(dto);
+    await expect(service.register(dto)).resolves.toMatchObject({ status: 'pending' });
     expect(db.user.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         googleSubject: identity.sub,
         email: identity.email,
         role: 'STYLIST',
+        active: false,
+        approvalStatus: 'pending',
+        requestedPlan: 'ESSENTIEL',
         stylist: { create: { businessName: dto.businessName, specialties: [] } },
         passwordHash: expect.stringMatching(/^\$argon2/),
       }),
     });
+    expect(auth.issueTokens).not.toHaveBeenCalled();
   });
   it('refuses duplicate email/phone/subject without overwriting an existing account', async () => {
     db.user.create.mockRejectedValue(
@@ -110,7 +119,12 @@ describe('Google authentication boundaries', () => {
   });
   it('refuses password login for Google-only accounts', async () => {
     const users = { findByEmail: jest.fn().mockResolvedValue(user) };
-    const passwordAuth = new AuthService(users as never, {} as never, {} as never, { send: jest.fn() } as never);
+    const passwordAuth = new AuthService(
+      users as never,
+      {} as never,
+      {} as never,
+      { send: jest.fn() } as never,
+    );
     await expect(
       passwordAuth.login({ email: identity.email, password: 'anything' }),
     ).rejects.toBeInstanceOf(UnauthorizedException);

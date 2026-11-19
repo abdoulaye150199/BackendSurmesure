@@ -8,6 +8,7 @@ import { PrismaUserRepository } from './infrastructure/prisma-user.repository';
 import { AuthController } from './presentation/auth.controller';
 import { JwtAuthGuard } from './presentation/jwt-auth.guard';
 import { RolesGuard } from './presentation/roles.guard';
+import { SubscriptionGuard } from './presentation/subscription.guard';
 @Module({
   imports: [JwtModule.register({})],
   controllers: [AuthController],
@@ -17,8 +18,9 @@ import { RolesGuard } from './presentation/roles.guard';
     WelcomeEmailService,
     JwtAuthGuard,
     RolesGuard,
+    SubscriptionGuard,
     { provide: USER_REPOSITORY, useClass: PrismaUserRepository },
   ],
-  exports: [JwtAuthGuard, RolesGuard, JwtModule, USER_REPOSITORY],
+  exports: [JwtAuthGuard, RolesGuard, SubscriptionGuard, JwtModule, USER_REPOSITORY],
 })
 export class AuthModule {}

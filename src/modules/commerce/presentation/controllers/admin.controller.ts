@@ -19,6 +19,7 @@ import { RolesGuard } from '../../../identity/presentation/roles.guard';
 import {
   AdminUsersQueryDto,
   AdminUserStatusDto,
+  AdminApproveUserDto,
   UpdateOrderDto,
 } from '../../application/commerce.dto';
 import { CommerceService } from '../../application/commerce.service';
@@ -48,6 +49,13 @@ export class AdminWorkspaceController {
     @Body() dto: AdminUserStatusDto,
   ) {
     return this.service.adminSetUserStatus(user.sub, id, dto.active);
+  }
+  @Patch('users/:id/approval') approveUser(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: AdminApproveUserDto,
+  ) {
+    return this.service.adminApproveUser(user.sub, id, dto.subscriptionPlan);
   }
   @Patch('orders/:id') orderStatus(
     @Param('id', new ParseUUIDPipe()) id: string,

@@ -1,4 +1,5 @@
 import type { AccountRole } from './account-role';
+import type { ApprovalStatus, SubscriptionPlan } from '@prisma/client';
 export const USER_REPOSITORY = Symbol('USER_REPOSITORY');
 export interface AccountRecord {
   id: string;
@@ -12,6 +13,9 @@ export interface AccountRecord {
   refreshTokenHash: string | null;
   profileImage: string;
   active: boolean;
+  approvalStatus?: ApprovalStatus;
+  requestedPlan?: SubscriptionPlan | null;
+  subscriptionPlan?: SubscriptionPlan | null;
   sessionVersion: number;
   mustChangePassword: boolean;
   createdAt: Date;
@@ -19,7 +23,7 @@ export interface AccountRecord {
 }
 export type AccessRecord = Pick<
   AccountRecord,
-  'id' | 'role' | 'email' | 'active' | 'sessionVersion'
+  'id' | 'role' | 'email' | 'active' | 'sessionVersion' | 'approvalStatus' | 'subscriptionPlan'
 >;
 export interface CreateAccount {
   firstName: string;
@@ -29,6 +33,9 @@ export interface CreateAccount {
   passwordHash: string;
   role: AccountRole;
   businessName?: string;
+  active?: boolean;
+  approvalStatus?: ApprovalStatus;
+  requestedPlan?: SubscriptionPlan;
 }
 export class AccountConflictError extends Error {
   constructor() {

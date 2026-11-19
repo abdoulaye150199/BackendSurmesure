@@ -19,6 +19,7 @@ import { CurrentUser } from '../../../identity/presentation/current-user.decorat
 import { JwtAuthGuard } from '../../../identity/presentation/jwt-auth.guard';
 import { Roles } from '../../../identity/presentation/roles.decorator';
 import { RolesGuard } from '../../../identity/presentation/roles.guard';
+import { MinimumPlan, SubscriptionGuard } from '../../../identity/presentation/subscription.guard';
 import {
   ClientLinkQueryDto,
   CreateCatalogItemDto,
@@ -44,7 +45,8 @@ import { CommerceService } from '../../application/commerce.service';
 @ApiTags('stylist workspace')
 @ApiBearerAuth()
 @Roles(AccountRole.STYLIST)
-@UseGuards(JwtAuthGuard, RolesGuard)
+@MinimumPlan('ESSENTIEL')
+@UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
 @Controller()
 export class StylistWorkspaceController {
   constructor(private readonly service: CommerceService) {}
@@ -55,14 +57,18 @@ export class StylistWorkspaceController {
   ) {
     return this.service.listOrders(id, user.sub, query);
   }
-  @Get('stylist/:stylistId/clients/link-candidates') linkCandidates(
+  @MinimumPlan('ATELIER')
+  @Get('stylist/:stylistId/clients/link-candidates')
+  linkCandidates(
     @Param('stylistId', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: AuthUser,
     @Query() query: ClientLinkQueryDto,
   ) {
     return this.service.clientLinkCandidates(id, user.sub, query.phone);
   }
-  @Post('stylist/:stylistId/clients/link') linkHistory(
+  @MinimumPlan('ATELIER')
+  @Post('stylist/:stylistId/clients/link')
+  linkHistory(
     @Param('stylistId', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: AuthUser,
     @Body() dto: LinkClientHistoryDto,
@@ -103,74 +109,87 @@ export class StylistWorkspaceController {
   ) {
     return this.service.deleteOrder(id, user.sub);
   }
-  @Patch('measurements/:id/validate') validateMeasurement(
+  @MinimumPlan('ATELIER')
+  @Patch('measurements/:id/validate')
+  validateMeasurement(
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: AuthUser,
     @Body() dto: ValidateMeasurementDto,
   ) {
     return this.service.validateMeasurement(id, user.sub, dto);
   }
-  @Get('stylist/:stylistId/measurements') measurements(
+  @MinimumPlan('ATELIER')
+  @Get('stylist/:stylistId/measurements')
+  measurements(
     @Param('stylistId', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: AuthUser,
     @Query() query: PageQueryDto,
   ) {
     return this.service.listMeasurements(id, user.sub, query.limit, query.cursor);
   }
-  @Get('stylist/:stylistId/appointments') appointments(
-    @Param('stylistId', new ParseUUIDPipe()) id: string,
-    @CurrentUser() user: AuthUser,
-  ) {
+  @MinimumPlan('ATELIER')
+  @Get('stylist/:stylistId/appointments')
+  appointments(@Param('stylistId', new ParseUUIDPipe()) id: string, @CurrentUser() user: AuthUser) {
     return this.service.stylistAppointments(id, user.sub);
   }
-  @Patch('appointments/:id/status') updateAppointmentStatus(
+  @MinimumPlan('ATELIER')
+  @Patch('appointments/:id/status')
+  updateAppointmentStatus(
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: AuthUser,
     @Body() dto: UpdateAppointmentStatusDto,
   ) {
     return this.service.updateStylistAppointmentStatus(id, user.sub, dto.status);
   }
-  @Get('stylist/:stylistId/measurements/search') searchMeasurements(
+  @MinimumPlan('ATELIER')
+  @Get('stylist/:stylistId/measurements/search')
+  searchMeasurements(
     @Param('stylistId', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: AuthUser,
     @Query() query: MeasurementsQueryDto,
   ) {
     return this.service.listMeasurements(id, user.sub, query.limit, query.cursor, query.q);
   }
-  @Post('stylist/:stylistId/measurements') addMeasurement(
+  @MinimumPlan('ATELIER')
+  @Post('stylist/:stylistId/measurements')
+  addMeasurement(
     @Param('stylistId', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: AuthUser,
     @Body() dto: CreateMeasurementDto,
   ) {
     return this.service.createMeasurement(id, user.sub, dto);
   }
-  @Put('measurements/:id') updateMeasurement(
+  @MinimumPlan('ATELIER')
+  @Put('measurements/:id')
+  updateMeasurement(
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: AuthUser,
     @Body() dto: UpdateMeasurementDto,
   ) {
     return this.service.updateMeasurement(id, user.sub, dto);
   }
-  @Delete('measurements/:id') deleteMeasurement(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @CurrentUser() user: AuthUser,
-  ) {
+  @MinimumPlan('ATELIER')
+  @Delete('measurements/:id')
+  deleteMeasurement(@Param('id', new ParseUUIDPipe()) id: string, @CurrentUser() user: AuthUser) {
     return this.service.deleteMeasurement(id, user.sub);
   }
-  @Get('stylist/:stylistId/personnel') personnel(
-    @Param('stylistId', new ParseUUIDPipe()) id: string,
-    @CurrentUser() user: AuthUser,
-  ) {
+  @MinimumPlan('STUDIO')
+  @Get('stylist/:stylistId/personnel')
+  personnel(@Param('stylistId', new ParseUUIDPipe()) id: string, @CurrentUser() user: AuthUser) {
     return this.service.listPersonnel(id, user.sub);
   }
-  @Post('stylist/:stylistId/personnel/accounts') createEmployeeAccount(
+  @MinimumPlan('STUDIO')
+  @Post('stylist/:stylistId/personnel/accounts')
+  createEmployeeAccount(
     @Param('stylistId', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: AuthUser,
     @Body() dto: CreateEmployeeAccountDto,
   ) {
     return this.service.createEmployeeAccount(id, user.sub, dto);
   }
-  @Patch('stylist/:stylistId/personnel/:id/access') setEmployeeAccess(
+  @MinimumPlan('STUDIO')
+  @Patch('stylist/:stylistId/personnel/:id/access')
+  setEmployeeAccess(
     @Param('stylistId', new ParseUUIDPipe()) stylist: string,
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: AuthUser,
@@ -178,21 +197,27 @@ export class StylistWorkspaceController {
   ) {
     return this.service.setEmployeeAccess(stylist, id, user.sub, dto.active);
   }
-  @Delete('stylist/:stylistId/personnel/:id') removeEmployee(
+  @MinimumPlan('STUDIO')
+  @Delete('stylist/:stylistId/personnel/:id')
+  removeEmployee(
     @Param('stylistId', new ParseUUIDPipe()) stylist: string,
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: AuthUser,
   ) {
     return this.service.removeEmployee(stylist, id, user.sub);
   }
-  @Post('stylist/:stylistId/personnel') addPersonnel(
+  @MinimumPlan('STUDIO')
+  @Post('stylist/:stylistId/personnel')
+  addPersonnel(
     @Param('stylistId', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: AuthUser,
     @Body() dto: CreatePersonnelDto,
   ) {
     return this.service.createPersonnel(id, user.sub, dto);
   }
-  @Put('stylist/:stylistId/personnel/:id') updatePersonnel(
+  @MinimumPlan('STUDIO')
+  @Put('stylist/:stylistId/personnel/:id')
+  updatePersonnel(
     @Param('stylistId', new ParseUUIDPipe()) stylist: string,
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: AuthUser,
@@ -200,10 +225,9 @@ export class StylistWorkspaceController {
   ) {
     return this.service.updatePersonnel(stylist, id, user.sub, dto);
   }
-  @Delete('personnel/:id') deletePersonnel(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @CurrentUser() user: AuthUser,
-  ) {
+  @MinimumPlan('STUDIO')
+  @Delete('personnel/:id')
+  deletePersonnel(@Param('id', new ParseUUIDPipe()) id: string, @CurrentUser() user: AuthUser) {
     return this.service.deletePersonnel(id, user.sub);
   }
   @Post('catalog') addCatalog(@CurrentUser() user: AuthUser, @Body() dto: CreateCatalogItemDto) {

@@ -21,7 +21,15 @@ export class PrismaUserRepository implements UserRepository {
   findAccessById(id: string) {
     return this.db.user.findUnique({
       where: { id, deletedAt: null },
-      select: { id: true, role: true, email: true, active: true, sessionVersion: true },
+      select: {
+        id: true,
+        role: true,
+        email: true,
+        active: true,
+        sessionVersion: true,
+        approvalStatus: true,
+        subscriptionPlan: true,
+      },
     });
   }
   async create({ businessName, ...data }: CreateAccount) {

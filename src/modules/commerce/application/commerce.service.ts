@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { AppointmentStatus } from '@prisma/client';
+import type { AppointmentStatus, SubscriptionPlan } from '@prisma/client';
 import { PageQueryDto } from '../../../shared/application/page.dto';
 import {
   AdminUsersQueryDto,
@@ -34,6 +34,9 @@ import { TeamService } from './services/team.service';
 
 @Injectable()
 export class CommerceService {
+  adminApproveUser(actorId: string, id: string, plan: SubscriptionPlan) {
+    return this.administration.adminApproveUser(actorId, id, plan);
+  }
   constructor(
     private readonly history: ClientHistoryService,
     private readonly notifications: NotificationsService,

@@ -17,7 +17,11 @@ export class ProfilesService {
         ...profileData,
         ...(profileImage !== undefined ? { user: { update: { profileImage } } } : {}),
       },
-      include: { user: { select: { firstName: true, lastName: true, profileImage: true } } },
+      include: {
+        user: {
+          select: { firstName: true, lastName: true, profileImage: true, subscriptionPlan: true },
+        },
+      },
     });
   }
 
@@ -27,7 +31,11 @@ export class ProfilesService {
       take: limit,
       ...(cursor && { cursor: { id: cursor }, skip: 1 }),
       orderBy: [{ rating: 'desc' }, { id: 'asc' }],
-      include: { user: { select: { firstName: true, lastName: true, profileImage: true } } },
+      include: {
+        user: {
+          select: { firstName: true, lastName: true, profileImage: true, subscriptionPlan: true },
+        },
+      },
     });
   }
 }

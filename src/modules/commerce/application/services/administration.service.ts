@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { AppointmentStatus, OrderStatus, Prisma, UserRole } from '@prisma/client';
+import { AppointmentStatus, OrderStatus, Prisma, UserRole, SubscriptionPlan } from '@prisma/client';
 import { PrismaService } from '../../../../infrastructure/prisma/prisma.service';
 import { AdminUsersQueryDto } from '../dto/administration.dto';
 import { paginate } from '../../../../shared/application/pagination';
@@ -22,6 +22,7 @@ export class AdministrationService {
       recentOrders,
       upcomingAppointments,
       catalog,
+      pendingRegistrations,
     ] = await Promise.all([
       this.db.user.count({ where: { deletedAt: null } }),
       this.db.user.count({ where: { role: UserRole.CLIENT, deletedAt: null } }),
@@ -52,6 +53,10 @@ export class AdministrationService {
           phone: true,
           profileImage: true,
           active: true,
+          approvalStatus: true,
+          requestedPlan: true,
+          subscriptionPlan: true,
+          approvedAt: true,
           createdAt: true,
           updatedAt: true,
           stylist: { select: { id: true, businessName: true, specialties: true, rating: true } },
@@ -87,6 +92,9 @@ export class AdministrationService {
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         include: { stylist: { select: { businessName: true } } },
       }),
+      this.db.user.count({
+        where: { role: 'STYLIST', approvalStatus: 'pending', deletedAt: null },
+      }),
     ]);
 
     return {
@@ -100,6 +108,7 @@ export class AdministrationService {
         appointments,
         catalogItems,
         revenue: revenue._sum.totalPrice ?? 0,
+        pendingRegistrations,
       },
       users: recentUsers,
       orders: recentOrders,
@@ -118,6 +127,14 @@ export class AdministrationService {
     if (!user) {
       throw new NotFoundException('Utilisateur introuvable');
     }
+    if (
+      active &&
+      (user.approvalStatus === 'pending' || (user.role === 'STYLIST' && !user.subscriptionPlan))
+    ) {
+      throw new BadRequestException(
+        'Attribuez une formule et validez l’inscription avant d’activer ce compte.',
+      );
+    }
     return this.db.user.update({
       where: { id, deletedAt: null },
       data: {
@@ -133,6 +150,10 @@ export class AdministrationService {
         phone: true,
         profileImage: true,
         active: true,
+        approvalStatus: true,
+        requestedPlan: true,
+        subscriptionPlan: true,
+        approvedAt: true,
         createdAt: true,
         updatedAt: true,
         stylist: { select: { id: true, businessName: true, specialties: true, rating: true } },
@@ -144,6 +165,7 @@ export class AdministrationService {
     const search = query.search?.trim();
     const where: Prisma.UserWhereInput = {
       deletedAt: null,
+      ...(query.approvalStatus ? { approvalStatus: query.approvalStatus } : {}),
       ...(query.role ? { role: query.role } : {}),
       ...(search
         ? {
@@ -177,6 +199,10 @@ export class AdministrationService {
         phone: true,
         profileImage: true,
         active: true,
+        approvalStatus: true,
+        requestedPlan: true,
+        subscriptionPlan: true,
+        approvedAt: true,
         createdAt: true,
         updatedAt: true,
         stylist: { select: { id: true, businessName: true, specialties: true, rating: true } },
@@ -184,6 +210,44 @@ export class AdministrationService {
     });
     const result = paginate(rows, query.limit);
     return { ...result, meta: { ...result.meta, total, page, totalPages } };
+  }
+
+  async adminApproveUser(actorId: string, id: string, subscriptionPlan: SubscriptionPlan) {
+    const user = await this.db.user.findUnique({ where: { id, deletedAt: null } });
+    if (!user) throw new NotFoundException('Utilisateur introuvable');
+    if (user.role !== UserRole.STYLIST) {
+      throw new BadRequestException('Seuls les comptes stylistes peuvent recevoir une formule.');
+    }
+    return this.db.user.update({
+      where: { id, deletedAt: null, role: UserRole.STYLIST },
+      data: {
+        active: true,
+        approvalStatus: 'approved',
+        subscriptionPlan,
+        approvedAt: new Date(),
+        approvedById: actorId,
+        refreshTokenHash: null,
+        sessionVersion: { increment: 1 },
+      },
+      select: {
+        id: true,
+        role: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        profileImage: true,
+        active: true,
+        approvalStatus: true,
+        requestedPlan: true,
+        subscriptionPlan: true,
+        approvedAt: true,
+        approvedById: true,
+        createdAt: true,
+        updatedAt: true,
+        stylist: { select: { id: true, businessName: true, specialties: true, rating: true } },
+      },
+    });
   }
 
   async adminDeleteUser(actorId: string, id: string) {

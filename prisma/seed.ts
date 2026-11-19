@@ -16,7 +16,11 @@ async function upsertDemoUser(input: {
   return prisma.user.upsert({
     where: { email: data.email },
     update: { profileImage: data.profileImage },
-    create: { ...data, passwordHash: await argon2.hash(password) },
+    create: {
+      ...data,
+      ...(data.role === UserRole.STYLIST ? { subscriptionPlan: 'STUDIO' as const } : {}),
+      passwordHash: await argon2.hash(password),
+    },
   });
 }
 

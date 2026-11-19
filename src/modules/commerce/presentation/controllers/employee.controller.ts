@@ -17,6 +17,7 @@ import { CurrentUser } from '../../../identity/presentation/current-user.decorat
 import { JwtAuthGuard } from '../../../identity/presentation/jwt-auth.guard';
 import { Roles } from '../../../identity/presentation/roles.decorator';
 import { RolesGuard } from '../../../identity/presentation/roles.guard';
+import { MinimumPlan, SubscriptionGuard } from '../../../identity/presentation/subscription.guard';
 import {
   CreateCatalogItemDto,
   CreateEmployeeMeasurementDto,
@@ -29,7 +30,8 @@ import { CommerceService } from '../../application/commerce.service';
 @ApiTags('employee workspace')
 @ApiBearerAuth()
 @Roles(AccountRole.EMPLOYEE)
-@UseGuards(JwtAuthGuard, RolesGuard)
+@MinimumPlan('STUDIO')
+@UseGuards(JwtAuthGuard, RolesGuard, SubscriptionGuard)
 @Controller('employee')
 export class EmployeeWorkspaceController {
   constructor(private readonly service: CommerceService) {}

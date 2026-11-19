@@ -5,6 +5,7 @@ import {
   Inject,
   Injectable,
   UnauthorizedException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -46,6 +47,13 @@ export class AuthService {
         phone: canonicalPhone(phone),
         passwordHash: await argon2.hash(password),
         role,
+        ...(role === AccountRole.STYLIST
+          ? {
+              active: false,
+              approvalStatus: 'pending' as const,
+              requestedPlan: ('requestedPlan' in dto && dto.requestedPlan) || 'ESSENTIEL',
+            }
+          : {}),
         ...(businessName ? { businessName } : {}),
       });
     } catch (error) {
@@ -56,6 +64,7 @@ export class AuthService {
       }
       throw error;
     }
+    if (role === AccountRole.STYLIST) return this.pendingRegistration(user);
     const session = await this.issueTokens(user);
     void this.welcomeEmail.send(user.email, user.firstName);
     return session;
@@ -64,13 +73,19 @@ export class AuthService {
     const user = await this.users.findByEmail(dto.email);
     if (
       !user ||
-      !user.active ||
       !!user.googleSubject ||
       (requiredRole && user.role !== requiredRole) ||
       !(await argon2.verify(user.passwordHash, dto.password))
     ) {
       throw new UnauthorizedException('Identifiants invalides');
     }
+    if (user.approvalStatus === 'pending') {
+      throw new ForbiddenException(
+        'Votre inscription est en attente de validation par l’administrateur.',
+      );
+    }
+    if (!user.active)
+      throw new UnauthorizedException('Ce compte est désactivé. Contactez l’administrateur.');
     return this.issueTokens(user);
   }
   async refresh(token: string) {
@@ -130,6 +145,9 @@ export class AuthService {
     return this.publicUser(user);
   }
   async issueTokens(user: AccountRecord, previousRefreshHash?: string) {
+    if (!user.active || user.approvalStatus === 'pending') {
+      throw new ForbiddenException('Ce compte n’est pas encore activé par l’administrateur.');
+    }
     const payload = {
       sub: user.id,
       role: user.role,
@@ -170,9 +188,21 @@ export class AuthService {
       phone: user.phone,
       profileImage: user.profileImage,
       isActive: user.active,
+      approvalStatus: user.approvalStatus ?? 'approved',
+      requestedPlan: user.requestedPlan ?? null,
+      subscriptionPlan: user.subscriptionPlan ?? null,
       mustChangePassword: user.mustChangePassword,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+    };
+  }
+
+  pendingRegistration(user: AccountRecord) {
+    return {
+      status: 'pending' as const,
+      message:
+        'Votre compte a été créé. Un administrateur doit valider votre inscription et attribuer votre formule avant votre première connexion.',
+      data: this.publicUser(user),
     };
   }
 }

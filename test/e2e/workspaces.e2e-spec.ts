@@ -7,6 +7,7 @@ import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { configureApplication } from '../../src/configure-application';
 import { PrismaService } from '../../src/infrastructure/prisma/prisma.service';
+import { WelcomeEmailService } from '../../src/modules/identity/application/welcome-email.service';
 
 /** Real HTTP, real guards, real PostgreSQL. The setup refuses production URLs. */
 describe('workspace HTTP contracts', () => {
@@ -47,7 +48,10 @@ describe('workspace HTTP contracts', () => {
   }
 
   beforeAll(async () => {
-    const module = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const module = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(WelcomeEmailService)
+      .useValue({ send: jest.fn().mockResolvedValue(undefined) })
+      .compile();
     app = module.createNestApplication<NestExpressApplication>({
       logger: false,
       bodyParser: false,
@@ -68,6 +72,7 @@ describe('workspace HTTP contracts', () => {
           email: `${name}@example.com`,
           phone,
           role,
+          ...(role === UserRole.STYLIST ? { subscriptionPlan: 'STUDIO' as const } : {}),
           passwordHash,
         },
       });
@@ -594,8 +599,86 @@ describe('workspace HTTP contracts', () => {
       phone: '+221770000096',
       businessName: 'Nouvel atelier',
     };
-    const stylist = await http().post('/v1/auth/stylist/signup').send(newStylist).expect(201);
+    let stylist = await http()
+      .post('/v1/auth/stylist/signup')
+      .send({ ...newStylist, requestedPlan: 'STUDIO' })
+      .expect(201);
     expect(stylist.body.data.role).toBe('STYLIST');
+    expect(stylist.body.status).toBe('pending');
+    expect(stylist.body.token).toBeUndefined();
+    expect(stylist.body.data.isActive).toBe(false);
+    const newStylistId = stylist.body.data.id;
+    await http()
+      .post('/v1/auth/stylist/login')
+      .send({ email: newStylist.email, password })
+      .expect(403);
+    await http()
+      .patch(`/v1/admin/users/${newStylistId}/approval`)
+      .auth(registered.body.token, { type: 'bearer' })
+      .send({ subscriptionPlan: 'STUDIO' })
+      .expect(403);
+    await http()
+      .patch(`/v1/admin/users/${newStylistId}/status`)
+      .set('Authorization', await authorization(admin))
+      .send({ active: true })
+      .expect(400);
+    await http()
+      .patch(`/v1/admin/users/${newStylistId}/approval`)
+      .set('Authorization', await authorization(admin))
+      .send({ subscriptionPlan: 'ESSENTIEL' })
+      .expect(200);
+    stylist = await http()
+      .post('/v1/auth/stylist/login')
+      .send({ email: newStylist.email, password })
+      .expect(201);
+    expect(stylist.body.data.subscriptionPlan).toBe('ESSENTIEL');
+    await http()
+      .get(`/v1/stylist/${newStylistId}/orders`)
+      .auth(stylist.body.token, { type: 'bearer' })
+      .expect(200);
+    await http()
+      .get(`/v1/stylist/${newStylistId}/measurements`)
+      .auth(stylist.body.token, { type: 'bearer' })
+      .expect(403);
+    await http()
+      .get(`/v1/stylist/${newStylistId}/appointments`)
+      .auth(stylist.body.token, { type: 'bearer' })
+      .expect(403);
+    await http()
+      .get(`/v1/stylist/${newStylistId}/personnel`)
+      .auth(stylist.body.token, { type: 'bearer' })
+      .expect(403);
+    await http()
+      .patch(`/v1/admin/users/${newStylistId}/approval`)
+      .set('Authorization', await authorization(admin))
+      .send({ subscriptionPlan: 'ATELIER' })
+      .expect(200);
+    await http().get('/v1/auth/me').auth(stylist.body.token, { type: 'bearer' }).expect(401);
+    stylist = await http()
+      .post('/v1/auth/stylist/login')
+      .send({ email: newStylist.email, password })
+      .expect(201);
+    await http()
+      .get(`/v1/stylist/${newStylistId}/appointments`)
+      .auth(stylist.body.token, { type: 'bearer' })
+      .expect(200);
+    await http()
+      .get(`/v1/stylist/${newStylistId}/personnel`)
+      .auth(stylist.body.token, { type: 'bearer' })
+      .expect(403);
+    await http()
+      .patch(`/v1/admin/users/${newStylistId}/approval`)
+      .set('Authorization', await authorization(admin))
+      .send({ subscriptionPlan: 'STUDIO' })
+      .expect(200);
+    stylist = await http()
+      .post('/v1/auth/stylist/login')
+      .send({ email: newStylist.email, password })
+      .expect(201);
+    await http()
+      .get(`/v1/stylist/${newStylistId}/personnel`)
+      .auth(stylist.body.token, { type: 'bearer' })
+      .expect(200);
     await http()
       .get('/v1/auth/stylist/me')
       .auth(stylist.body.token, { type: 'bearer' })

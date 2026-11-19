@@ -3,6 +3,7 @@ import {
   Injectable,
   ServiceUnavailableException,
   UnauthorizedException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OAuth2Client } from 'google-auth-library';
@@ -51,6 +52,11 @@ export class GoogleAuthService {
     const user = await this.db.user.findUnique({
       where: { googleSubject: identity.sub, deletedAt: null },
     });
+    if (user?.approvalStatus === 'pending') {
+      throw new ForbiddenException(
+        'Votre inscription est en attente de validation par l’administrateur.',
+      );
+    }
     if (!user?.active || !['CLIENT', 'STYLIST'].includes(user.role)) {
       throw new UnauthorizedException(
         'Aucun compte inscrit avec Google. Inscrivez-vous d’abord avec Google.',
@@ -73,10 +79,18 @@ export class GoogleAuthService {
           passwordHash: await argon2.hash(randomBytes(48).toString('base64url')),
           role: dto.role === 'stylist' ? 'STYLIST' : 'CLIENT',
           ...(dto.role === 'stylist'
+            ? {
+                active: false,
+                approvalStatus: 'pending',
+                requestedPlan: dto.requestedPlan ?? 'ESSENTIEL',
+              }
+            : {}),
+          ...(dto.role === 'stylist'
             ? { stylist: { create: { businessName: dto.businessName!, specialties: [] } } }
             : {}),
         },
       });
+      if (dto.role === 'stylist') return this.auth.pendingRegistration(user);
       const session = await this.auth.issueTokens(user);
       void this.welcomeEmail.send(user.email, user.firstName);
       return session;

@@ -7,8 +7,10 @@ import {
   ValidateIf,
   MaxLength,
   MinLength,
+  IsEnum,
 } from 'class-validator';
-import { TextField } from '../../../shared/validation/fields';
+import { SubscriptionPlan } from '@prisma/client';
+import { OptionalField, TextField } from '../../../shared/validation/fields';
 export class RegisterDto {
   @ApiProperty({ example: 'Fatou', minLength: 2 })
   @TextField(2, 80)
@@ -33,6 +35,7 @@ export class RegisterDto {
   password!: string;
 }
 export class StylistRegisterDto {
+  @OptionalField() @IsEnum(SubscriptionPlan) requestedPlan?: SubscriptionPlan;
   @ApiProperty({ example: 'Awa', minLength: 2 })
   @TextField(2, 80)
   firstName!: string;
@@ -71,6 +74,10 @@ export class GoogleLoginDto {
 }
 
 export class GoogleRegisterDto extends GoogleLoginDto {
+  @ValidateIf((dto: GoogleRegisterDto) => dto.role === 'stylist' || dto.requestedPlan !== undefined)
+  @OptionalField()
+  @IsEnum(SubscriptionPlan)
+  requestedPlan?: SubscriptionPlan;
   @IsIn(['client', 'stylist']) role!: 'client' | 'stylist';
   @TextField(2, 80) firstName!: string;
   @TextField(2, 80) lastName!: string;

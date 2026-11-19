@@ -30,6 +30,16 @@ Il s’agit d’une architecture de services NestJS avec règles métier isolée
 
 ## Sécurité des sessions
 
+### Inscriptions stylistes et formules
+
+Les inscriptions stylistes (mot de passe ou Google) créent un compte inactif, avec `approvalStatus=pending` et une formule demandée (`ESSENTIEL`, `ATELIER` ou `STUDIO`). Aucune session n’est délivrée. Les inscriptions clients gardent leur activation immédiate.
+
+Dans l’administration, filtrer les utilisateurs « En attente de validation », sélectionner la formule puis choisir « Valider et activer ». L’API `PATCH /v1/admin/users/:id/approval` réserve l’attribution de `subscriptionPlan` aux administrateurs. Le changement de formule révoque les sessions précédentes ; le styliste doit se reconnecter. Une simple réactivation de compte ne peut pas contourner l’approbation.
+
+Essentiel donne accès à la vitrine et aux commandes ; Atelier ajoute les dossiers clients, les mesures et les rendez-vous ; Studio ajoute l’équipe et les tableaux de suivi détaillés. Ces droits sont contrôlés dans les routes API et dans le portail. Les employés perdent l’accès à leur atelier si celui-ci n’a plus Studio.
+
+Avant de déployer cette version, exécuter `npm run prisma:generate`, puis appliquer la migration `20261119230000_subscription_approval` avec `npm run prisma:deploy`. Les stylistes existants conservent leurs outils via l’attribution initiale de Studio. Les nouvelles inscriptions restent en attente jusqu’à la décision de l’administrateur. Aucun paiement ni abonnement facturé automatiquement n’est déclenché par ce parcours.
+
 ### Courriels de bienvenue
 
 Après la création réussie d’un compte par e-mail/mot de passe ou par Google, l’API tente d’envoyer un courriel de bienvenue via SMTP. L’envoi est asynchrone et n’interrompt pas l’inscription si le serveur mail est indisponible. Configurer `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` et `MAIL_FROM` dans l’environnement d’exécution. Utiliser les paramètres affichés dans cPanel → Comptes de messagerie → Connect Devices ; ne pas reprendre le mot de passe du compte cPanel. Avec le port 465, garder TLS (`SMTP_SECURE=true`) ; avec le port 587, utiliser STARTTLS (`SMTP_SECURE=false`). `APP_PUBLIC_URL` définit le lien vers le site. Si SMTP n’est pas configuré, l’inscription continue et aucun message n’est envoyé.
