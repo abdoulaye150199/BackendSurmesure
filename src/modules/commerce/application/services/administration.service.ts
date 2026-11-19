@@ -22,8 +22,13 @@ export class AdministrationService {
         ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         select: {
-          id: true, firstName: true, lastName: true, email: true, requestedPlan: true,
-          approvalStatus: true, createdAt: true,
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          requestedPlan: true,
+          approvalStatus: true,
+          createdAt: true,
           stylist: { select: { businessName: true } },
           registrationReads: { where: { adminId }, select: { readAt: true } },
         },
@@ -31,14 +36,20 @@ export class AdministrationService {
       this.db.user.count({ where: { ...where, registrationReads: { none: { adminId } } } }),
     ]);
     const notifications = rows.map(({ registrationReads, ...user }) => ({
-      ...user, readAt: registrationReads[0]?.readAt ?? null,
+      ...user,
+      readAt: registrationReads[0]?.readAt ?? null,
     }));
     return { ...paginate(notifications, query.limit), unreadCount };
   }
 
   async adminReadNotification(adminId: string, stylistUserId: string) {
     const registration = await this.db.user.findFirst({
-      where: { id: stylistUserId, role: UserRole.STYLIST, deletedAt: null, requestedPlan: { not: null } },
+      where: {
+        id: stylistUserId,
+        role: UserRole.STYLIST,
+        deletedAt: null,
+        requestedPlan: { not: null },
+      },
       select: { id: true },
     });
     if (!registration) throw new NotFoundException('Notification d’inscription introuvable.');

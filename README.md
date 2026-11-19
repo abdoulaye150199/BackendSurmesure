@@ -32,6 +32,8 @@ Il s’agit d’une architecture de services NestJS avec règles métier isolée
 
 ### Inscriptions stylistes et formules
 
+Une cloche dans l’administration affiche les nouvelles inscriptions stylistes, leur atelier, leur formule demandée et leur statut. Les notifications se rafraîchissent toutes les 30 secondes lorsque l’onglet est visible et au retour dans l’application. Les inscriptions par mot de passe et Google apparaissent automatiquement depuis les comptes enregistrés, sans envoi de courrier supplémentaire. La consultation ouvre le bon compte et enregistre la lecture séparément pour chaque administrateur. Appliquer également la migration `20261119233000_admin_registration_notifications` avant de déployer cette fonctionnalité.
+
 Les inscriptions stylistes (mot de passe ou Google) créent un compte inactif, avec `approvalStatus=pending` et une formule demandée (`ESSENTIEL`, `ATELIER` ou `STUDIO`). Aucune session n’est délivrée. Les inscriptions clients gardent leur activation immédiate.
 
 Dans l’administration, filtrer les utilisateurs « En attente de validation », sélectionner la formule puis choisir « Valider et activer ». L’API `PATCH /v1/admin/users/:id/approval` réserve l’attribution de `subscriptionPlan` aux administrateurs. Le changement de formule révoque les sessions précédentes ; le styliste doit se reconnecter. Une simple réactivation de compte ne peut pas contourner l’approbation.
