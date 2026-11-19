@@ -68,8 +68,20 @@ model User {
   clientMeasurements Measurement[] @relation("ClientMeasurements")
   appointments Appointment[] @relation("ClientAppointments")
   notifications ClientNotification[]
+  adminRegistrationReads AdminRegistrationRead[] @relation("AdminRegistrationReader")
+  registrationReads AdminRegistrationRead[] @relation("RegisteredStylistReads")
   @@index([role, active])
   @@index([approvalStatus, createdAt(sort: Desc)])
+}
+
+model AdminRegistrationRead {
+  adminId String @db.Uuid
+  stylistUserId String @db.Uuid
+  readAt DateTime @default(now())
+  admin User @relation("AdminRegistrationReader", fields: [adminId], references: [id], onDelete: Cascade)
+  stylistUser User @relation("RegisteredStylistReads", fields: [stylistUserId], references: [id], onDelete: Cascade)
+  @@id([adminId, stylistUserId])
+  @@index([stylistUserId])
 }
 
 model StylistProfile {

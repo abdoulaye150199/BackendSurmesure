@@ -34,6 +34,12 @@ import { TeamService } from './services/team.service';
 
 @Injectable()
 export class CommerceService {
+  adminNotifications(adminId: string, query: PageQueryDto) {
+    return this.administration.adminNotifications(adminId, query);
+  }
+  adminReadNotification(adminId: string, stylistUserId: string) {
+    return this.administration.adminReadNotification(adminId, stylistUserId);
+  }
   adminApproveUser(actorId: string, id: string, plan: SubscriptionPlan) {
     return this.administration.adminApproveUser(actorId, id, plan);
   }

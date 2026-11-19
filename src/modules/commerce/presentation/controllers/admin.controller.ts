@@ -23,6 +23,7 @@ import {
   UpdateOrderDto,
 } from '../../application/commerce.dto';
 import { CommerceService } from '../../application/commerce.service';
+import { PageQueryDto } from '../../../../shared/application/page.dto';
 
 @ApiTags('super admin')
 @ApiBearerAuth()
@@ -33,6 +34,15 @@ export class AdminWorkspaceController {
   constructor(private readonly service: CommerceService) {}
   @Get('dashboard') dashboard() {
     return this.service.adminDashboard();
+  }
+  @Get('notifications') notifications(@CurrentUser() user: AuthUser, @Query() query: PageQueryDto) {
+    return this.service.adminNotifications(user.sub, query);
+  }
+  @Patch('notifications/:id/read') readNotification(
+    @CurrentUser() user: AuthUser,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.service.adminReadNotification(user.sub, id);
   }
   @Get('users') users(@Query() query: AdminUsersQueryDto) {
     return this.service.adminUsers(query);

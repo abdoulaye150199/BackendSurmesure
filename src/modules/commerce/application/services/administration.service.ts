@@ -3,10 +3,53 @@ import { AppointmentStatus, OrderStatus, Prisma, UserRole, SubscriptionPlan } fr
 import { PrismaService } from '../../../../infrastructure/prisma/prisma.service';
 import { AdminUsersQueryDto } from '../dto/administration.dto';
 import { paginate } from '../../../../shared/application/pagination';
+import { PageQueryDto } from '../../../../shared/application/page.dto';
 
 @Injectable()
 export class AdministrationService {
   constructor(private readonly db: PrismaService) {}
+
+  async adminNotifications(adminId: string, query: PageQueryDto) {
+    const where: Prisma.UserWhereInput = {
+      role: UserRole.STYLIST,
+      deletedAt: null,
+      requestedPlan: { not: null },
+    };
+    const [rows, unreadCount] = await Promise.all([
+      this.db.user.findMany({
+        where,
+        take: query.limit + 1,
+        ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        select: {
+          id: true, firstName: true, lastName: true, email: true, requestedPlan: true,
+          approvalStatus: true, createdAt: true,
+          stylist: { select: { businessName: true } },
+          registrationReads: { where: { adminId }, select: { readAt: true } },
+        },
+      }),
+      this.db.user.count({ where: { ...where, registrationReads: { none: { adminId } } } }),
+    ]);
+    const notifications = rows.map(({ registrationReads, ...user }) => ({
+      ...user, readAt: registrationReads[0]?.readAt ?? null,
+    }));
+    return { ...paginate(notifications, query.limit), unreadCount };
+  }
+
+  async adminReadNotification(adminId: string, stylistUserId: string) {
+    const registration = await this.db.user.findFirst({
+      where: { id: stylistUserId, role: UserRole.STYLIST, deletedAt: null, requestedPlan: { not: null } },
+      select: { id: true },
+    });
+    if (!registration) throw new NotFoundException('Notification d’inscription introuvable.');
+    const read = await this.db.adminRegistrationRead.upsert({
+      where: { adminId_stylistUserId: { adminId, stylistUserId } },
+      create: { adminId, stylistUserId },
+      update: {},
+      select: { stylistUserId: true, readAt: true },
+    });
+    return { id: read.stylistUserId, readAt: read.readAt };
+  }
   async adminDashboard() {
     const [
       users,
