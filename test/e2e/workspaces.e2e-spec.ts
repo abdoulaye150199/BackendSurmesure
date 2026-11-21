@@ -160,6 +160,37 @@ describe('workspace HTTP contracts', () => {
       .send({ email: client.email, password, role: 'ADMIN' })
       .expect(400);
   });
+  it('paginates only published creations of the signed-in atelier and resolves distant public favorites', async () => {
+    const auth = await authorization(owner);
+    const items = Array.from({length: 23}, (_, i) => ({
+      stylistId: i === 21 ? otherAtelierId : atelierId,
+      active: i !== 22,
+      title: 'Pagination ' + i,
+      price: 5000,
+      availableColors: [],
+      imageUrl: '/assets/look-1.webp',
+    }));
+    await db.catalogItem.createMany({data: items});
+    await http().get('/v1/stylist/catalog').expect(401);
+    await http().get('/v1/stylist/catalog').set('Authorization', await authorization(client)).expect(403);
+    const profile = (await http().get('/v1/stylist/profile').set('Authorization', auth).expect(200)).body;
+    expect(profile.id).toBe(atelierId);
+    expect(profile._count.catalogItems).toBe(21);
+    const page = (await http().get('/v1/stylist/catalog?limit=20').set('Authorization', auth).expect(200)).body;
+    expect(page.data).toHaveLength(20);
+    const next = (await http().get('/v1/stylist/catalog').query({cursor: page.meta.nextCursor}).set('Authorization', auth).expect(200)).body;
+    expect(next.meta).toEqual({hasMore:false, nextCursor:null});
+    const all = [...page.data, ...next.data];
+    expect(new Set(all.map(row => row.id)).size).toBe(21);
+    expect(all.every(row => row.active && row.stylistId === atelierId)).toBe(true);
+    const favorite = next.data[0].id;
+    const found = (await http().get('/v1/catalog').query({ids: favorite}).expect(200)).body;
+    expect(found.map(row => row.id)).toEqual([favorite]);
+    const artist = (await http().get('/v1/stylists').query({ids: otherAtelierId}).expect(200)).body;
+    expect(artist.map(row => row.id)).toEqual([otherAtelierId]);
+    await http().get('/v1/catalog?ids=invalid').expect(400);
+  });
+
   it('creates a guest order and its validated measurements atomically', async () => {
     const response = await http()
       .post(`/v1/stylist/${atelierId}/orders`)

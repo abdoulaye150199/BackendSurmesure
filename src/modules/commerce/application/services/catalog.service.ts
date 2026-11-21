@@ -2,6 +2,9 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { PrismaService } from '../../../../infrastructure/prisma/prisma.service';
 import { CreateCatalogItemDto, UpdateCatalogItemDto } from '../commerce.dto';
 
+import type { PageQueryDto } from '../../../../shared/application/page.dto';
+import { paginate } from '../../../../shared/application/pagination';
+import type { Prisma } from '@prisma/client';
 import { CommerceAccessService } from './commerce-access.service';
 
 @Injectable()
@@ -15,13 +18,23 @@ export class CatalogService {
     return this.db.catalogItem.create({ data: { ...dto, stylistId: employee.stylistId } });
   }
 
-  async listCatalog(limit: number, cursor?: string) {
+  listCatalog(limit: number, cursor?: string, ids?: string[]) {
+    return this.activeItems({ stylist: { user: { is: { active: true, deletedAt: null } } },
+      ...(ids && { id: { in: ids } }) }, limit, cursor);
+  }
+
+  async ownCatalog(userId: string, { limit, cursor }: PageQueryDto) {
+    const items = await this.activeItems({ stylist: { userId } }, limit + 1, cursor);
+    return paginate(items, limit);
+  }
+
+  private async activeItems(where: Prisma.CatalogItemWhereInput, limit: number, cursor?: string) {
     const items = await this.db.catalogItem.findMany({
-      where: { active: true, stylist: { user: { is: { active: true, deletedAt: null } } } },
+      where: { ...where, active: true },
       take: limit,
       ...(cursor && { cursor: { id: cursor }, skip: 1 }),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      include: { _count: { select: { likes: true } } },
+      include: { stylist: { select: { businessName: true } }, _count: { select: { likes: true } } },
     });
     return items.map(({ _count, ...item }) => ({ ...item, likesCount: _count.likes }));
   }

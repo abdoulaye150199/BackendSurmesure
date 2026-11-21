@@ -30,7 +30,7 @@ BASE_URL=https://api.surmesurestyle.com npm run test:load
 
 Ce dernier test exerce une charge réelle sur le site en production et peut
 le ralentir. Aucun test lourd n’est lancé automatiquement par un push ou
-par les tests unitaires. Les scripts ne font que des lectures ; ils ne créent
+par les tests unitaires. Par défaut, les scripts ne font que des lectures ; ils ne créent
 ni compte, commande, rendez-vous ou like. Les requêtes seront visibles dans
 les journaux serveur.
 
@@ -49,7 +49,7 @@ Ajouter jusqu’à 20 secondes de terminaison. `TARGET_VUS=750` permet de
 viser davantage (500 à 5000). `test:load:smoke` est volontairement limité
 à un VU pendant environ 35 secondes pour vérifier le parcours d’abord.
 
-Un parcours lit `/v1/catalog?limit=13`, `/v1/stylists?limit=100`, puis la
+Un parcours lit `/v1/catalog?limit=13`, `/v1/stylists?limit=21`, puis la
 fiche d’un modèle disponible. Les réponses JSON sont vérifiées. La readiness
 PostgreSQL est contrôlée avant le début. Une base sans modèle ne permet pas
 de mesurer le parcours de détail ; utiliser un jeu représentatif.
@@ -72,6 +72,20 @@ Le fichier et les résultats sont ignorés par Git. Aucun jeton ne doit être
 publié ou ajouté aux rapports. Les jetons expirés provoquent volontairement
 un échec ; le scénario ne contourne pas l’authentification. Il ne mesure pas
 les pics de connexion/Argon2 ni Google OAuth.
+
+## Vérifier 1 000 puis 1 500 utilisateurs actifs
+
+Sur la préproduction avec des comptes fictifs, préparer autant de jetons clients distincts que de VU ciblés. Le scénario authentifié ouvre le profil, les commandes, les mesures et les rendez-vous. Pour inclure la création de rendez-vous, fournir l’identifiant de profil d’un atelier de test actif avec la formule Atelier ou Studio. Chaque VU client concerné envoie au plus une demande pendant le palier. Ces demandes persistent dans la base de test.
+
+```bash
+export BASE_URL=https://API-DE-PREPRODUCTION AUTH_PERCENT=20 TOKENS_FILE=./clients.tokens.json
+export APPOINTMENT_STYLIST_ID=UUID-DU-PROFIL-DE-TEST
+npm run test:load:smoke
+TARGET_VUS=1000 SUMMARY_FILE=load-results/1000.json npm run test:load
+TARGET_VUS=1500 SUMMARY_FILE=load-results/1500.json npm run test:load
+```
+
+Comparer chaque palier avec les seuils ci-dessous. Mesurer aussi, sur un téléphone en réseau mobile, le délai avant de pouvoir ouvrir une création. k6 mesure ici les appels HTTP de l’API.
 
 ## Lire les résultats
 

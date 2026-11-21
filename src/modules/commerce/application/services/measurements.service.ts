@@ -216,6 +216,7 @@ export class MeasurementsService {
   async clientMeasurements(clientId: string) {
     const rows = await this.db.measurement.findMany({
       where: { clientId, clientConfirmedAt: { not: null } },
+      include: { stylist: { select: { businessName: true } } },
       orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
     });
     return rows.map(({ values, ...row }) => ({ ...row, measurements: values }));

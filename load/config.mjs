@@ -16,6 +16,10 @@ export function loadConfig(env = {}) {
   if (!Number.isFinite(authenticated) || authenticated < 0 || authenticated > 100) {
     throw new Error('AUTH_PERCENT doit être compris entre 0 et 100.');
   }
+  const appointmentStylist = env.APPOINTMENT_STYLIST_ID || '';
+  if (appointmentStylist && (!authenticated || !/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(appointmentStylist))) {
+    throw new Error('APPOINTMENT_STYLIST_ID requiert un UUID d’atelier de test et des clients authentifiés.');
+  }
   const stages =
     profile === 'smoke'
       ? [
@@ -31,5 +35,5 @@ export function loadConfig(env = {}) {
           { duration: '5m', target },
           { duration: '1m', target: 0 },
         ];
-  return { baseUrl, profile, target, authenticated, stages };
+  return { baseUrl, profile, target, authenticated, appointmentStylist, stages };
 }

@@ -1,3 +1,5 @@
+import { Transform } from 'class-transformer';
+import { PageQueryDto } from '../../../../shared/application/page.dto';
 import {
   ArrayMaxSize,
   IsArray,
@@ -17,6 +19,15 @@ import {
   OptionalField,
   TextField,
 } from '../../../../shared/validation/fields';
+export class PublicListQueryDto extends PageQueryDto {
+  @OptionalField()
+  @Transform(({ value }) => typeof value === 'string' ? value.split(',') : value)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsUUID('all', { each: true })
+  ids?: string[];
+}
+
 export class CatalogLikeDto {
   @IsUUID() visitorId!: string;
   @IsBoolean() liked!: boolean;

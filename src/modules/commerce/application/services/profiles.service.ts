@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../../infrastructure/prisma/prisma.service';
 import type { UpdateStylistProfileDto } from '../commerce.dto';
 
+const publicUser = { select: { firstName: true, lastName: true, profileImage: true, subscriptionPlan: true } } as const;
+
 @Injectable()
 export class ProfilesService {
   constructor(private readonly db: PrismaService) {}
@@ -18,23 +20,29 @@ export class ProfilesService {
         ...(profileImage !== undefined ? { user: { update: { profileImage } } } : {}),
       },
       include: {
-        user: {
-          select: { firstName: true, lastName: true, profileImage: true, subscriptionPlan: true },
-        },
+        user: publicUser,
       },
     });
   }
 
-  listStylists(limit: number, cursor?: string) {
+  ownProfile(userId: string) {
+    return this.db.stylistProfile.findUniqueOrThrow({
+      where: { userId },
+      include: {
+        user: publicUser,
+        _count: { select: { catalogItems: { where: { active: true } } } },
+      },
+    });
+  }
+
+  listStylists(limit: number, cursor?: string, ids?: string[]) {
     return this.db.stylistProfile.findMany({
-      where: { user: { is: { active: true, deletedAt: null } } },
+      where: { user: { is: { active: true, deletedAt: null } }, ...(ids && { id: { in: ids } }) },
       take: limit,
       ...(cursor && { cursor: { id: cursor }, skip: 1 }),
       orderBy: [{ rating: 'desc' }, { id: 'asc' }],
       include: {
-        user: {
-          select: { firstName: true, lastName: true, profileImage: true, subscriptionPlan: true },
-        },
+        user: publicUser,
       },
     });
   }

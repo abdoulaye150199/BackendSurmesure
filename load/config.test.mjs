@@ -39,3 +39,15 @@ test('validates scenario selection and authenticated percentage', () => {
     assert.throws(() => loadConfig({ AUTH_PERCENT: value }));
   assert.equal(loadConfig({ AUTH_PERCENT: '20' }).authenticated, 20);
 });
+
+test('supports 1000 and 1500 active visitors and opt-in appointment requests', () => {
+  for (const target of [1000, 1500]) {
+    const config = loadConfig({TARGET_VUS: String(target)});
+    assert.deepEqual(config.stages[4], {duration: '5m', target});
+    assert.equal(config.appointmentStylist, '');
+  }
+  const id = '00000000-0000-4000-8000-000000000001';
+  assert.throws(() => loadConfig({APPOINTMENT_STYLIST_ID: id}));
+  assert.throws(() => loadConfig({APPOINTMENT_STYLIST_ID: 'bad', AUTH_PERCENT:'100'}));
+  assert.equal(loadConfig({AUTH_PERCENT:'100', APPOINTMENT_STYLIST_ID: id}).appointmentStylist, id);
+});

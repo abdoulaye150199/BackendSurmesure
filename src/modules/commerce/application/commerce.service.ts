@@ -173,8 +173,16 @@ export class CommerceService {
     return this.catalog.createEmployeeCatalog(actorId, dto);
   }
 
-  listCatalog(limit: number, cursor?: string) {
-    return this.catalog.listCatalog(limit, cursor);
+  ownProfile(userId: string) {
+    return this.profiles.ownProfile(userId);
+  }
+
+  ownCatalog(userId: string, query: PageQueryDto) {
+    return this.catalog.ownCatalog(userId, query);
+  }
+
+  listCatalog(limit: number, cursor?: string, ids?: string[]) {
+    return this.catalog.listCatalog(limit, cursor, ids);
   }
 
   setCatalogLike(id: string, visitorId: string, liked: boolean) {
@@ -201,8 +209,8 @@ export class CommerceService {
     return this.profiles.updateStylistProfile(actorId, dto);
   }
 
-  listStylists(limit: number, cursor?: string) {
-    return this.profiles.listStylists(limit, cursor);
+  listStylists(limit: number, cursor?: string, ids?: string[]) {
+    return this.profiles.listStylists(limit, cursor, ids);
   }
 
   createAppointment(clientId: string, dto: CreateAppointmentDto) {

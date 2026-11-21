@@ -62,13 +62,19 @@ function request(path, name, validate, token) {
     redirects: 0,
     headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
   });
+  return recordResponse(response, name, validate, 200);
+}
+
+function recordResponse(response, name, validate, status) {
+  let body;
   let valid = false;
   try {
-    valid = response.status === 200 && validate(response.json());
+    body = response.json();
+    valid = response.status === status && validate(body);
   } catch {
     /* Invalid JSON is a failure. */
   }
-  check(response, { [`${name}: HTTP 200 et réponse valide`]: () => valid });
+  check(response, { [`${name}: HTTP ${status} et réponse valide`]: () => valid });
   rateLimited.add(response.status === 429);
   serverErrors.add(response.status === 0 || response.status >= 500);
   invalidResponses.add(!valid);
@@ -77,7 +83,7 @@ function request(path, name, validate, token) {
     plateauLatency.add(response.timings.duration);
     plateauErrors.add(!valid);
   }
-  return valid ? response.json() : null;
+  return valid ? body : null;
 }
 
 export function setup() {
@@ -86,13 +92,15 @@ export function setup() {
     tags: { name: 'readiness' },
   });
   if (response.status !== 200) throw new Error('API non prête : arrêt avant la montée en charge.');
+  return { slotStart: Date.now() + 7 * 24 * 3600_000 };
 }
 
-export default function () {
-  // A visitor browses, pauses, then opens a model. No signup, order, like or mutation.
+let appointmentAttempted = false;
+
+export default function ({ slotStart }) {
   const items = request('/catalog?limit=13', 'catalog', Array.isArray);
   sleep(1 + Math.random() * 2);
-  request('/stylists?limit=100', 'stylists', Array.isArray);
+  request('/stylists?limit=21', 'stylists', Array.isArray);
   if (items?.length) {
     const item = items[Math.floor(Math.random() * items.length)];
     if (typeof item.id === 'string') {
@@ -104,7 +112,7 @@ export default function () {
       );
     }
   }
-  if (execution.vu.idInTest % 100 < config.authenticated) {
+  if ((execution.vu.idInTest - 1) % 100 < config.authenticated) {
     const token = tokens[execution.vu.idInTest - 1];
     request(
       '/auth/me',
@@ -112,7 +120,26 @@ export default function () {
       (body) => typeof body?.id === 'string' && body.role === 'CLIENT',
       token,
     );
-    request('/orders?limit=20', 'client_orders', (body) => Array.isArray(body?.data), token);
+    const headers = { Accept: 'application/json', Authorization: `Bearer ${token}` };
+    const reads = [
+      ['/orders?limit=100', 'client_orders', body => Array.isArray(body?.data)],
+      ['/measurements', 'client_measurements', Array.isArray],
+      ['/appointments', 'client_appointments', Array.isArray],
+    ];
+    const responses = http.batch(reads.map(([path, name]) => ({
+      method: 'GET', url: `${config.baseUrl}/v1${path}`, params: { headers, tags: { name }, timeout: '10s', redirects: 0 },
+    })));
+    reads.forEach(([, name, validate], index) => recordResponse(responses[index], name, validate, 200));
+    const atPlateau = Date.now() - execution.scenario.startTime >= 420000;
+    if (config.appointmentStylist && !appointmentAttempted && (config.profile === 'smoke' || atPlateau)) {
+      appointmentAttempted = true;
+      const response = http.post(`${config.baseUrl}/v1/appointments`, JSON.stringify({
+        stylistId: config.appointmentStylist,
+        startsAt: new Date(slotStart + execution.vu.idInTest * 60000).toISOString(),
+        service: 'Essayage de test k6',
+      }), { headers: { ...headers, 'Content-Type': 'application/json' }, tags: { name: 'request_appointment' }, timeout: '10s', redirects: 0 });
+      recordResponse(response, 'request_appointment', body => typeof body?.id === 'string' && body.status === 'pending', 201);
+    }
   }
   sleep(2 + Math.random() * 3);
 }
@@ -125,7 +152,7 @@ export function handleSummary(data) {
       .map(([threshold]) => `${name}: ${threshold}`),
   );
   return {
-    'load-results/summary.json': JSON.stringify(
+    [__ENV.SUMMARY_FILE || 'load-results/summary.json']: JSON.stringify(
       {
         targetVUs: config.profile === 'smoke' ? 1 : config.target,
         profile: config.profile,
@@ -136,6 +163,6 @@ export function handleSummary(data) {
       null,
       2,
     ),
-    stdout: `\nProfil : ${config.profile}\nRequêtes : ${metric('http_reqs', 'count')}\nErreurs HTTP : ${metric('http_req_failed', 'rate')}\np95 : ${metric('http_req_duration', 'p(95)')} ms\np99 : ${metric('http_req_duration', 'p(99)')} ms\nSeuils échoués : ${failed.length ? failed.join('; ') : 'aucun'}\nRapport : load-results/summary.json\n`,
+    stdout: `\nProfil : ${config.profile}\nRequêtes : ${metric('http_reqs', 'count')}\nErreurs HTTP : ${metric('http_req_failed', 'rate')}\np95 : ${metric('http_req_duration', 'p(95)')} ms\np99 : ${metric('http_req_duration', 'p(99)')} ms\nSeuils échoués : ${failed.length ? failed.join('; ') : 'aucun'}\nRapport : ${__ENV.SUMMARY_FILE || 'load-results/summary.json'}\n`,
   };
 }

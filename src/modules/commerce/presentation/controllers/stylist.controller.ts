@@ -230,6 +230,14 @@ export class StylistWorkspaceController {
   deletePersonnel(@Param('id', new ParseUUIDPipe()) id: string, @CurrentUser() user: AuthUser) {
     return this.service.deletePersonnel(id, user.sub);
   }
+  @Get('stylist/profile')
+  ownProfile(@CurrentUser() user: AuthUser) {
+    return this.service.ownProfile(user.sub);
+  }
+  @Get('stylist/catalog')
+  ownCatalog(@CurrentUser() user: AuthUser, @Query() query: PageQueryDto) {
+    return this.service.ownCatalog(user.sub, query);
+  }
   @Post('catalog') addCatalog(@CurrentUser() user: AuthUser, @Body() dto: CreateCatalogItemDto) {
     return this.service.createCatalog(user.sub, dto);
   }
