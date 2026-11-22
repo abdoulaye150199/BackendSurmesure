@@ -145,6 +145,15 @@ describe('workspace HTTP contracts', () => {
       .expect(401);
     await http().post('/v1/auth/admin/login').send({ email: client.email, password }).expect(401);
   });
+  it('reserves administrator credentials for the dedicated login endpoint', async () => {
+    for (const endpoint of ['login', 'client/login', 'stylist/login', 'employee/login']) {
+      await http().post(`/v1/auth/${endpoint}`).send({ email: admin.email, password }).expect(401);
+    }
+    const login = await http().post('/v1/auth/admin/login')
+      .send({ email: admin.email, password }).expect(201);
+    expect(login.body.data.role).toBe('ADMIN');
+    expect(login.body.token).toEqual(expect.any(String));
+  });
   it('validates bodies, unknown properties, identifiers and pagination', async () => {
     const auth = await authorization(owner);
     await http()
@@ -185,9 +194,9 @@ describe('workspace HTTP contracts', () => {
     expect(all.every(row => row.active && row.stylistId === atelierId)).toBe(true);
     const favorite = next.data[0].id;
     const found = (await http().get('/v1/catalog').query({ids: favorite}).expect(200)).body;
-    expect(found.map(row => row.id)).toEqual([favorite]);
+    expect(found.map((row: { id: string }) => row.id)).toEqual([favorite]);
     const artist = (await http().get('/v1/stylists').query({ids: otherAtelierId}).expect(200)).body;
-    expect(artist.map(row => row.id)).toEqual([otherAtelierId]);
+    expect(artist.map((row: { id: string }) => row.id)).toEqual([otherAtelierId]);
     await http().get('/v1/catalog?ids=invalid').expect(400);
   });
 

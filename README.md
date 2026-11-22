@@ -30,6 +30,14 @@ Il s’agit d’une architecture de services NestJS avec règles métier isolée
 
 ## Sécurité des sessions
 
+La connexion d’un administrateur est réservée à `POST /v1/auth/admin/login`,
+appelé depuis `/admin` ou une de ses sous-pages dans le portail. La connexion
+générale `POST /v1/auth/login` refuse les comptes `ADMIN` avec HTTP 401,
+même lorsque le mot de passe est correct. Les connexions publiques continuent
+à reconnaître les rôles client, styliste et employé. Le contrôle du rôle est
+effectué dans le backend ; le chemin de la page est également contrôlé dans
+le portail avant l’envoi et avant l’enregistrement d’une session administrateur.
+
 ### Inscriptions stylistes et formules
 
 Une cloche dans l’administration affiche les nouvelles inscriptions stylistes, leur atelier, leur formule demandée et leur statut. Les notifications se rafraîchissent toutes les 30 secondes lorsque l’onglet est visible et au retour dans l’application. Les inscriptions par mot de passe et Google apparaissent automatiquement depuis les comptes enregistrés, sans envoi de courrier supplémentaire. La consultation ouvre le bon compte et enregistre la lecture séparément pour chaque administrateur. Appliquer également la migration `20261119233000_admin_registration_notifications` avant de déployer cette fonctionnalité.

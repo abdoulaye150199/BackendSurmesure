@@ -64,7 +64,9 @@ export class AuthService {
       }
       throw error;
     }
-    if (role === AccountRole.STYLIST) return this.pendingRegistration(user);
+    if (role === AccountRole.STYLIST) {
+      return this.pendingRegistration(user);
+    }
     const session = await this.issueTokens(user);
     void this.welcomeEmail.send(user.email, user.firstName);
     return session;
@@ -74,6 +76,7 @@ export class AuthService {
     if (
       !user ||
       !!user.googleSubject ||
+      (user.role === AccountRole.ADMIN && requiredRole !== AccountRole.ADMIN) ||
       (requiredRole && user.role !== requiredRole) ||
       !(await argon2.verify(user.passwordHash, dto.password))
     ) {
@@ -84,8 +87,9 @@ export class AuthService {
         'Votre inscription est en attente de validation par l’administrateur.',
       );
     }
-    if (!user.active)
+    if (!user.active) {
       throw new UnauthorizedException('Ce compte est désactivé. Contactez l’administrateur.');
+    }
     return this.issueTokens(user);
   }
   async refresh(token: string) {
