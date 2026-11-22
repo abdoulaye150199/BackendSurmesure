@@ -200,6 +200,28 @@ Le correctif transitif `effect@3.22.1` est fixé dans `overrides.@prisma/config`
 pour traiter GHSA-7589-6fvf-x4pw sans changement majeur de Prisma. Déployer
 `package.json` et `package-lock.json` ensemble, puis installer avec `npm ci`.
 
+### Vider le catalogue et les comptes non administrateurs
+
+Le script `scripts/clear-catalog-users.cjs` affiche par défaut un aperçu sans
+modification. L’option `--apply` supprime définitivement tout le catalogue,
+les utilisateurs non administrateurs (y compris les comptes déjà supprimés
+logiquement), leurs profils et les commandes, mesures, rendez-vous,
+employés et notifications associés. Tous les comptes `ADMIN` sont conservés
+sans modification. Les données indépendantes appartenant uniquement à des
+administrateurs sont conservées, à l’exception du catalogue qui est vidé
+intégralement. Les fichiers d’images et les migrations ne sont pas supprimés.
+
+```bash
+node scripts/clear-catalog-users.cjs --dry-run
+node scripts/clear-catalog-users.cjs --apply
+```
+
+La suppression verrouille les écritures des tables concernées dans une
+transaction et vérifie avant validation que le catalogue et les comptes non
+administrateurs sont vides, et que le nombre d’administrateurs est inchangé.
+Un échec interrompt et annule la transaction. Le script utilise la
+`DATABASE_URL` de l’environnement serveur ou du `.env` du dossier backend.
+
 ### Seed et super administrateur
 
 Avec les variables PostgreSQL configurées :
