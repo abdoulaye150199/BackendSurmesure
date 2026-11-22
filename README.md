@@ -168,6 +168,38 @@ Déployer `dist/`, `node_modules/` (ou installer les dépendances sur LWS), `pri
 
 L’écran Passenger de la capture est une page générique : il ne donne pas la cause. Dans cPanel, ouvrir le journal d’erreurs Passenger / `stderr.log` et le journal d’erreurs du domaine juste après un redémarrage, puis rechercher les premières lignes `Error`, `Cannot find module` ou `P1001`. Vérifier dans cet ordre que le chemin d’application pointe sur ce dossier, que le point d’entrée compilé `dist/src/main.js` existe, que la version Node est 22, que les dépendances et le client Prisma sont installés, que `DATABASE_URL` est bien au format PostgreSQL Neon, que l’IP du serveur LWS est autorisée sur Neon et que les secrets requis existent. L’URL de la capture utilise HTTP (« Non sécurisé ») ; activer le certificat SSL/HTTPS LWS une fois que Passenger répond.
 
+### Échec de création de processus sur LWS (`spawn ... EAGAIN`)
+
+Si la génération Prisma réussit mais que `prisma:deploy` échoue avec
+`spawn ... schema-engine ... EAGAIN`, le moteur n’a pas pu démarrer : la
+connexion PostgreSQL n’a pas encore été vérifiée par cette tentative.
+Consulter l’utilisation des ressources dans cPanel (processus/threads et
+mémoire) et les processus du compte, sans afficher leurs arguments :
+
+```bash
+ulimit -u
+ps -u "$(id -un)" -o pid,comm,nlwp
+```
+
+Le script de migration limite par défaut les workers libuv, Tokio et Rayon
+à un par pool pour son sous-processus, tout en conservant les valeurs
+explicitement configurées. Il réessaie les erreurs de création de processus
+`EAGAIN` et les délais de verrou consultatif au maximum trois fois, à dix
+secondes d’intervalle. Les autres erreurs arrêtent immédiatement le déploiement.
+Pour réduire aussi les threads du lanceur et éviter le processus npm :
+
+```bash
+UV_THREADPOOL_SIZE=1 TOKIO_WORKER_THREADS=1 RAYON_NUM_THREADS=1 node scripts/migrate-deploy.cjs
+```
+
+Une limite de ressources persistante nécessite une intervention dans cPanel
+ou auprès de LWS ; les tentatives du script ne peuvent pas la lever. Attendre
+la réussite des migrations avant de redémarrer la nouvelle version Passenger.
+
+Le correctif transitif `effect@3.22.1` est fixé dans `overrides.@prisma/config`
+pour traiter GHSA-7589-6fvf-x4pw sans changement majeur de Prisma. Déployer
+`package.json` et `package-lock.json` ensemble, puis installer avec `npm ci`.
+
 ### Seed et super administrateur
 
 Avec les variables PostgreSQL configurées :
